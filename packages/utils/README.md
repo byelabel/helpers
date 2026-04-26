@@ -378,9 +378,17 @@ app.post('/login', (req, res) => {
 res.json(responseData(null, { token: '...' }));
 ```
 
-### `config`
+### `@byelabel/utils/config`
 
-Imported for side effects: loads `.env` from the workspace root, sets `process.env.WORKING_PATH`, `ROOT_PATH`, normalizes `ROUTE_PREFIX`. Imported automatically by other modules — you rarely import it directly.
+Imported for side effects: sets `process.env.WORKING_PATH`, `ROOT_PATH`, normalizes `ROUTE_PREFIX`, then autoloads `.env` from the workspace root. Imported automatically by other modules — you rarely import it directly.
+
+For additional env files, call `loadEnv` explicitly:
+
+```ts
+import { loadEnv } from '@byelabel/utils/config';
+
+const { rootPath, workingPath, prefix } = loadEnv('.env.local');
+```
 
 ## Repository
 
