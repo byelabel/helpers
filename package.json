@@ -10,7 +10,9 @@
     "dev": "pnpm -r --parallel run dev",
     "clean": "pnpm -r exec rm -rf build node_modules",
     "test": "pnpm -r run test",
-    "test:watch": "pnpm -r --parallel run test:watch"
+    "test:watch": "pnpm -r --parallel run test:watch",
+    "release:utils": "node scripts/release.mjs utils",
+    "release:react": "node scripts/release.mjs react"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",
