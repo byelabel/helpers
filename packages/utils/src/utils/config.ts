@@ -4,18 +4,6 @@ import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { isNonEmptyString } from './validator';
 
-// autoload .env
-const env = loadEnv();
-
-// set prefix
-process.env.ROUTE_PREFIX = `${isNonEmptyString(env.prefix) ? '/' : ''}${env.prefix}`;
-
-// set the working path
-process.env.WORKING_PATH = env.workingPath;
-
-// set the root path
-process.env.ROOT_PATH = env.rootPath;
-
 export function loadEnv(envFile = '.env') {
   // root path
   const rootPath = resolve(process.cwd());
@@ -23,11 +11,10 @@ export function loadEnv(envFile = '.env') {
   // working path
   const workingPath = resolve(dirname(require.main?.filename ?? ''));
 
-  // prefix
-  const prefix = (process.env.ROUTE_PREFIX || '').split('/').map(uri => uri.trim()).filter(uri => uri.length).join('/');
-
   // load environment variables
   const filePath = join(rootPath, envFile);
+
+  let prefix = '';
 
   if (existsSync(filePath)) {
     // set environment
@@ -40,13 +27,28 @@ export function loadEnv(envFile = '.env') {
       console.error(env.error);
       process.exit(1);
     } else {
-      console.log(`Environment variables loaded from ${filePath}`);
+      // prefix
+      prefix = (((env.parsed as any).ROUTE_PREFIX || '') as string).split('/').map(uri => uri.trim()).filter(uri => uri.length).join('/');
+
+      console.log(`Environment variables loaded from "${filePath}"`);
     }
   }
 
   return {
     rootPath,
     workingPath,
-    prefix
+    prefix: `${isNonEmptyString(prefix) ? '/' : ''}${prefix}`
   };
 }
+
+// autoload .env
+const env = loadEnv();
+
+// set the working path
+process.env.WORKING_PATH = env.workingPath;
+
+// set the root path
+process.env.ROOT_PATH = env.rootPath;
+
+// set prefix
+process.env.ROUTE_PREFIX = env.prefix;
