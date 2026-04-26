@@ -378,7 +378,7 @@ app.post('/login', (req, res) => {
 res.json(responseData(null, { token: '...' }));
 ```
 
-### `@byelabel/utils/config`
+### `config`
 
 Imported for side effects: sets `process.env.WORKING_PATH`, `ROOT_PATH`, normalizes `ROUTE_PREFIX`, then autoloads `.env` from the workspace root. Imported automatically by other modules — you rarely import it directly.
 
