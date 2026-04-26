@@ -39,6 +39,8 @@ export function loadEnv(envFile = '.env') {
     if (env.error) {
       console.error(env.error);
       process.exit(1);
+    } else {
+      console.log(`Environment variables loaded from ${filePath}`);
     }
   }
 
