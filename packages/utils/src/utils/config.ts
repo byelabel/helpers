@@ -14,7 +14,7 @@ export function loadEnv(envFile = '.env') {
   // load environment variables
   const filePath = join(rootPath, envFile);
 
-  let prefix = '';
+  let routePrefix = '';
 
   if (existsSync(filePath)) {
     // set environment
@@ -28,7 +28,7 @@ export function loadEnv(envFile = '.env') {
       process.exit(1);
     } else {
       // prefix
-      prefix = (((env.parsed as any).ROUTE_PREFIX || '') as string).split('/').map(uri => uri.trim()).filter(uri => uri.length).join('/');
+      routePrefix = (((env.parsed as any).ROUTE_PREFIX || '') as string).split('/').map(uri => uri.trim()).filter(uri => uri.length).join('/');
 
       console.log(`Environment variables loaded from "${filePath}"`);
     }
@@ -37,7 +37,7 @@ export function loadEnv(envFile = '.env') {
   return {
     rootPath,
     workingPath,
-    prefix: `${isNonEmptyString(prefix) ? '/' : ''}${prefix}`
+    routePrefix: `${isNonEmptyString(routePrefix) ? '/' : ''}${routePrefix}`
   };
 }
 
@@ -50,5 +50,5 @@ process.env.WORKING_PATH = env.workingPath;
 // set the root path
 process.env.ROOT_PATH = env.rootPath;
 
-// set prefix
-process.env.ROUTE_PREFIX = env.prefix;
+// set route prefix
+process.env.ROUTE_PREFIX = env.routePrefix;
