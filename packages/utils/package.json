@@ -1,0 +1,127 @@
+{
+  "name": "@byelabel/utils",
+  "version": "0.0.1",
+  "description": "ByeLabel Utilities",
+  "type": "commonjs",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "default": "./build/index.js"
+    },
+    "./config": {
+      "types": "./build/utils/config.d.ts",
+      "default": "./build/utils/config.js"
+    },
+    "./crypt": {
+      "types": "./build/utils/crypt.d.ts",
+      "default": "./build/utils/crypt.js"
+    },
+    "./data": {
+      "types": "./build/utils/data.d.ts",
+      "default": "./build/utils/data.js"
+    },
+    "./db": {
+      "types": "./build/utils/db.d.ts",
+      "default": "./build/utils/db.js"
+    },
+    "./dto": {
+      "types": "./build/utils/dto.d.ts",
+      "default": "./build/utils/dto.js"
+    },
+    "./encryption": {
+      "types": "./build/utils/encryption.d.ts",
+      "default": "./build/utils/encryption.js"
+    },
+    "./error": {
+      "types": "./build/utils/error.d.ts",
+      "default": "./build/utils/error.js"
+    },
+    "./events": {
+      "types": "./build/utils/events.d.ts",
+      "default": "./build/utils/events.js"
+    },
+    "./jobs": {
+      "types": "./build/utils/jobs.d.ts",
+      "default": "./build/utils/jobs.js"
+    },
+    "./log": {
+      "types": "./build/utils/log.d.ts",
+      "default": "./build/utils/log.js"
+    },
+    "./number": {
+      "types": "./build/utils/number.d.ts",
+      "default": "./build/utils/number.js"
+    },
+    "./output": {
+      "types": "./build/utils/output.d.ts",
+      "default": "./build/utils/output.js"
+    },
+    "./rabbit": {
+      "types": "./build/utils/rabbit.d.ts",
+      "default": "./build/utils/rabbit.js"
+    },
+    "./redis": {
+      "types": "./build/utils/redis.d.ts",
+      "default": "./build/utils/redis.js"
+    },
+    "./validator": {
+      "types": "./build/utils/validator.d.ts",
+      "default": "./build/utils/validator.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "build"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "license": "MIT",
+  "author": "Orhan POLAT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:byelabel/helpers.git",
+    "directory": "packages/utils"
+  },
+  "keywords": [
+    "utils",
+    "typescript",
+    "webim"
+  ],
+  "scripts": {
+    "dev": "npm run build && node --trace-warnings ./build/index.js",
+    "start": "node ./build/index.js",
+    "build": "rm -rf ./build && tsc --project tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@joi/date": "^2.1.1",
+    "amqplib": "^1.0.3",
+    "dotenv": "^17.4.2",
+    "eventemitter2": "^6.4.9",
+    "glob": "^13.0.6",
+    "joi": "^18.1.2",
+    "redis": "^5.12.1",
+    "sequelize": "^6.37.8",
+    "sequelize-typescript": "^2.1.6",
+    "uuid": "^14.0.0"
+  },
+  "peerDependencies": {
+    "express": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "@types/express": "^5.0.6",
+    "typescript": "^6.0.3"
+  }
+}
