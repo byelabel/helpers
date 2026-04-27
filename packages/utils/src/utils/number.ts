@@ -6,7 +6,7 @@ export function toNumber(number: number | string, scale = 2): number {
   return Number(Number(number).toFixed(scale));
 }
 
-export function format(number: number | string, options?: Intl.NumberFormatOptions, locale?: string) {
+export function format(number: number | string, locale?: string, options?: Intl.NumberFormatOptions) {
   if (!isNumeric(number)) number = 0;
 
   return Intl.NumberFormat(locale || 'en-US', {

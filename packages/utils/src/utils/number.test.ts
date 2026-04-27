@@ -28,7 +28,7 @@ describe('format', () => {
   });
 
   it('passes Intl options through', () => {
-    expect(format(1.5, { minimumFractionDigits: 3 })).toBe('1.500');
+    expect(format(1.5, undefined, { minimumFractionDigits: 3 })).toBe('1.500');
   });
 
   it('coerces non-numeric input to 0', () => {
@@ -37,7 +37,7 @@ describe('format', () => {
 
   it('honors locale override', () => {
     // tr-TR uses '.' as thousands separator and ',' as decimal
-    expect(format(1234.5, undefined, 'tr-TR')).toBe('1.234,5');
+    expect(format(1234.5, 'tr-TR', undefined)).toBe('1.234,5');
   });
 });
 
