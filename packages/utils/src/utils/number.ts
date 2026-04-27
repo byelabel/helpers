@@ -31,24 +31,26 @@ export function currencySymbol(code = 'USD', locale?: string) {
   }).formatToParts(0).find(part => part?.type === 'currency')?.value;
 }
 
-export function percent(number: number | string, locale?: string) {
+export function percent(number: number | string, locale?: string, options?: Intl.NumberFormatOptions) {
   if (!isNumeric(number)) number = 0;
 
   const intl = new Intl.NumberFormat(locale, {
-    style: 'percent',
-    maximumSignificantDigits: 2
+    maximumSignificantDigits: 2,
+    ...options,
+    style: 'percent'
   });
 
   return intl.format(Number(number) / 100);
 }
 
-export function short(number: number | string, locale?: string) {
+export function short(number: number | string, locale?: string, options?: Intl.NumberFormatOptions) {
   if (!isNumeric(number)) number = 0;
 
   return Intl.NumberFormat(locale || 'en-US', {
+    maximumFractionDigits: 1,
+    ...options,
     notation: 'compact',
-    compactDisplay: 'short',
-    maximumFractionDigits: 1
+    compactDisplay: 'short'
   }).format(Number(number));
 }
 
