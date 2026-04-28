@@ -1,6 +1,6 @@
 {
   "name": "@byelabel/utils",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "ByeLabel Utilities",
   "type": "commonjs",
   "main": "build/index.js",
