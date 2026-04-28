@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import cluster from 'node:cluster';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
@@ -30,7 +31,9 @@ export function loadEnv(envFile = '.env') {
       // prefix
       routePrefix = (((env.parsed as any).ROUTE_PREFIX || '') as string).split('/').map(uri => uri.trim()).filter(uri => uri.length).join('/');
 
-      console.log(`Environment variables loaded from "${filePath}"`);
+      if (cluster.isPrimary) {
+        console.log(`Environment variables loaded: "${envFile}"`);
+      }
     }
   }
 

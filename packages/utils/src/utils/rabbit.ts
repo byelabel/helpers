@@ -22,14 +22,6 @@ type ISendMessageOptions = {
   timeout?: number
 };
 
-const processId = process.pid;
-const connection: { [key: number]: amqp.ChannelModel | null } = {
-  [processId]: null
-};
-const channel: { [key: number]: amqp.Channel | null } = {
-  [processId]: null
-};
-
 export type IRabbitOptions = {
   protocol?: string;
   host?: string;
@@ -40,11 +32,28 @@ export type IRabbitOptions = {
   namespace?: string;
   messageMaxSize?: number;
   timeout?: number;
+  heartbeat?: number;
   queues?: string;
   exchanges?: string;
+  maxRetries?: number;
+  retryDelay?: number;
+  retryMaxDelay?: number;
 };
 
-function resolveRabbitOptions(options?: IRabbitOptions): IRabbitOptions {
+const processId = process.pid;
+const connection: { [key: number]: amqp.ChannelModel | null } = {
+  [processId]: null
+};
+const channel: { [key: number]: amqp.Channel | null } = {
+  [processId]: null
+};
+const connecting: { [key: number]: Promise<{ connection: amqp.ChannelModel, channel: amqp.Channel }> | null } = {
+  [processId]: null
+};
+
+let config: IRabbitOptions = {};
+
+function resolveRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
   return {
     protocol: options?.protocol ?? process.env.RABBIT_PROTOCOL,
     host: options?.host ?? process.env.RABBIT_HOST,
@@ -55,13 +64,17 @@ function resolveRabbitOptions(options?: IRabbitOptions): IRabbitOptions {
     namespace: options?.namespace ?? process.env.RABBIT_NAMESPACE,
     messageMaxSize: options?.messageMaxSize ?? Number(process.env.RABBIT_MESSAGE_MAX_SIZE || 5000000),
     timeout: options?.timeout ?? Number(process.env.RABBIT_TIMEOUT || 0),
+    heartbeat: options?.heartbeat ?? Number(process.env.RABBIT_HEARTBEAT || 60),
     queues: options?.queues ?? process.env.RABBIT_QUEUES,
-    exchanges: options?.exchanges ?? process.env.RABBIT_EXCHANGES
+    exchanges: options?.exchanges ?? process.env.RABBIT_EXCHANGES,
+    maxRetries: options?.maxRetries ?? Number(process.env.RABBIT_MAX_RETRIES || 5),
+    retryDelay: options?.retryDelay ?? Number(process.env.RABBIT_RETRY_DELAY || 500),
+    retryMaxDelay: options?.retryMaxDelay ?? Number(process.env.RABBIT_RETRY_MAX_DELAY || 5000)
   };
 }
 
 export function checkRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
-  const opts = resolveRabbitOptions(options);
+  const opts = resolveRabbitConfig(options);
 
   if (!isNonEmptyString(opts.host)) {
     throwAppError('RabbitMQ host configuration not found', 'MISSING_RABBIT_HOST');
@@ -69,11 +82,6 @@ export function checkRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
 
   return opts;
 }
-
-let resolved: IRabbitOptions = resolveRabbitOptions();
-
-const namespace = () => isNonEmptyString(resolved.namespace) ? `${resolved.namespace}/` : '';
-const messageMaxSize = () => resolved.messageMaxSize as number;
 
 function createURI(opts: IRabbitOptions): string {
   const url = [`${isNonEmptyString(opts.protocol) ? opts.protocol : 'amqp'}://`];
@@ -97,47 +105,97 @@ function createURI(opts: IRabbitOptions): string {
 }
 
 export function connect(options?: IRabbitOptions): Promise<{ connection: amqp.ChannelModel, channel: amqp.Channel }> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      if (!connection[processId]) {
-        resolved = checkRabbitConfig(options);
+  if (connection[processId] && channel[processId]) {
+    return Promise.resolve({
+      connection: connection[processId]!,
+      channel: channel[processId]!
+    });
+  }
 
-        const conn = await amqp.connect(createURI(resolved));
-        connection[processId] = conn;
+  if (connecting[processId]) {
+    return connecting[processId]!;
+  }
 
-        conn.on('error', e => {
-          logError('RabbitMQ connection error', e, null, true).catch(() => {});
-        }).on('close', () => {
-          logWarning('RabbitMQ connection closed', true).catch(() => {});
+  connecting[processId] = (async () => {
+    // update resolved configuration
+    config = checkRabbitConfig(options);
 
-          // reset
-          connection[processId] = null;
-          channel[processId] = null;
-        });
+    const maxRetries = Math.max(0, config.maxRetries as number);
+    const baseDelay = Math.max(0, config.retryDelay as number);
+    const maxDelay = Math.max(baseDelay, config.retryMaxDelay as number);
+
+    // set namespace & messageMaxSize
+    config.namespace = isNonEmptyString(config.namespace) ? `${config.namespace}/` : '';
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (!connection[processId]) {
+          const conn = await amqp.connect(createURI(config), {
+            heartbeat: config.heartbeat,
+            clientProperties: {
+              connection_name: `${(process.env.NAME || 'Microservice').toLowerCase().replace(/[^a-z0-9-_]/i, '-')}-${processId}`
+            }
+          });
+          connection[processId] = conn;
+
+          conn.on('error', e => {
+            logError('RabbitMQ connection error', e, null, true).catch(() => {});
+          }).on('close', () => {
+            logWarning('RabbitMQ connection closed', true).catch(() => {});
+
+            // reset
+            connection[processId] = null;
+            channel[processId] = null;
+          });
+        }
+
+        if (!channel[processId]) {
+          const ch = await connection[processId]!.createConfirmChannel();
+          channel[processId] = ch;
+
+          ch.on('error', e => {
+            logError('RabbitMQ channel error', e, null, true).catch(() => {});
+          }).on('close', () => {
+            logWarning('RabbitMQ channel closed', true).catch(() => {});
+
+            // reset
+            channel[processId] = null;
+          });
+        }
+
+        connecting[processId] = null;
+
+        return {
+          connection: connection[processId]!,
+          channel: channel[processId]!
+        };
+      } catch (e) {
+        lastError = e as Error;
+
+        // discard partial state so the next attempt starts clean
+        try { await connection[processId]?.close(); } catch {}
+
+        connection[processId] = null;
+        channel[processId] = null;
+
+        if (attempt < maxRetries) {
+          const delay = Math.min(maxDelay, baseDelay * Math.pow(2, attempt));
+
+          logWarning(`RabbitMQ connect failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms: ${lastError.message}`, true).catch(() => {});
+
+          await new Promise(r => setTimeout(r, delay));
+        }
       }
-
-      if (!channel[processId]) {
-        const ch = await connection[processId]!.createConfirmChannel();
-        channel[processId] = ch;
-
-        ch.on('error', e => {
-          logError('RabbitMQ channel error', e, null, true).catch(() => {});
-        }).on('close', () => {
-          logWarning('RabbitMQ channel closed', true).catch(() => {});
-
-          // reset
-          channel[processId] = null;
-        });
-      }
-
-      resolve({
-        connection: connection[processId]!,
-        channel: channel[processId]!
-      });
-    } catch (e) {
-      reject(new AppError((e as Error).message, 'RABBITMQ_ERROR'));
     }
-  });
+
+    connecting[processId] = null;
+
+    throw new AppError(lastError?.message || 'RabbitMQ connect failed', 'RABBITMQ_ERROR');
+  })();
+
+  return connecting[processId]!;
 }
 
 export function disconnect(): Promise<void> {
@@ -199,18 +257,29 @@ function receiveStream(message: amqp.Message): Promise<Buffer> {
         const stream: IStream[] = [];
 
         // push first content
-        stream.push({ index: headers.index, content: message.content });
+        stream.push({
+          index: headers.index,
+          content: message.content
+        });
 
-        await channel.consume(headers.queue, async (streamMessage) => {
-          if (streamMessage && isUUID(headers.id) && (streamMessage.properties?.correlationId === headers.id) && isNumber(headers.index) && isNumber(headers.length) && (stream.length < headers.length)) {
+        const { consumerTag } = await channel.consume(headers.queue, async (streamMessage) => {
+          if (!streamMessage) return;
+
+          const streamHeaders = streamMessage.properties?.headers as IStreamHeader | undefined;
+
+          if (streamHeaders && isUUID(headers.id) && (streamMessage.properties?.correlationId === headers.id) && isNumber(streamHeaders.index) && isNumber(headers.length) && (stream.length < headers.length)) {
             channel.ack(streamMessage);
 
-            stream.push({ index: headers.index, content: streamMessage.content });
+            stream.push({
+              index: streamHeaders.index,
+              content: streamMessage.content
+            });
 
             if (stream.length === headers.length) {
-              resolve(Buffer.concat(stream.sort((a: any, b: any) => a.index < b.index ? -1 : (a.index > b.index ? 1 : 0)).map((buffer: any) => buffer.content)));
+              resolve(Buffer.concat(stream.sort((a, b) => a.index - b.index).map(buffer => buffer.content)));
 
-              await channel.deleteQueue(headers.queue);
+              await channel.cancel(consumerTag).catch(() => {});
+              await channel.deleteQueue(headers.queue).catch(() => {});
             }
           }
         }, {
@@ -233,27 +302,27 @@ function sendStream(queue: string, message: Buffer, properties?: amqp.Options.Pu
       const q = await channel.assertQueue('', {
         durable: true,
         autoDelete: true,
-        expires: (isNumeric(options?.timeout) ? +(options!.timeout as number) : (resolved.timeout || 30)) * 1000
+        expires: (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 30)) * 1000
       });
 
-      const headers: IStreamHeader = {
-        id: v4(),
-        queue: q.queue,
-        index: 0,
-        length: Math.ceil(message.byteLength / messageMaxSize())
-      };
+      const id = v4();
+      const length = Math.ceil(message.byteLength / (config.messageMaxSize as number));
 
-      while (headers.index < headers.length) {
-        const part = headers.index * messageMaxSize();
+      for (let index = 0; index < length; index++) {
+        const part = index * (config.messageMaxSize as number);
+        const headers: IStreamHeader = {
+          id,
+          queue: q.queue,
+          index,
+          length
+        };
 
-        channel.sendToQueue((headers.index === 0 ? queue : q.queue), message.subarray(part, part + messageMaxSize()), {
-          ...(headers.index === 0 ? properties : {
-            correlationId: headers.id
+        channel.sendToQueue((index === 0 ? queue : q.queue), message.subarray(part, part + (config.messageMaxSize as number)), {
+          ...(index === 0 ? properties : {
+            correlationId: id
           }),
           headers
         });
-
-        headers.index++;
       }
 
       resolve();
@@ -268,7 +337,7 @@ export function receiveMessage(queue: string, callback?: Function): Promise<void
     try {
       const { channel } = await connect();
 
-      queue = `${namespace()}${queue}`;
+      queue = `${config.namespace}${queue}`;
 
       await channel.assertQueue(queue, {
         durable: true
@@ -298,7 +367,7 @@ export function receiveMessage(queue: string, callback?: Function): Promise<void
                   events.onUndelivered(result);
                 }
               } else {
-                if (returnMessage.byteLength > messageMaxSize()) {
+                if (returnMessage.byteLength > (config.messageMaxSize as number)) {
                   await sendStream(message.properties.replyTo, returnMessage, {
                     replyTo: message.properties.replyTo,
                     correlationId: message.properties?.correlationId,
@@ -337,7 +406,7 @@ export function sendMessage(name: string, data?: any, options?: ISendMessageOpti
         queue = queue.substring(0, queue.indexOf('.'));
       }
 
-      queue = `${namespace()}${queue}`;
+      queue = `${config.namespace}${queue}`;
 
       await channel.assertQueue(queue, {
         durable: true
@@ -345,7 +414,7 @@ export function sendMessage(name: string, data?: any, options?: ISendMessageOpti
 
       const message = Buffer.from(JSON.stringify({ pattern, data }));
 
-      if (message.byteLength > messageMaxSize()) {
+      if (message.byteLength > (config.messageMaxSize as number)) {
         await sendStream(queue, message, undefined, options);
       } else {
         channel.sendToQueue(queue, message);
@@ -379,7 +448,7 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
         }
 
         reject(error);
-      }, (isNumeric(options?.timeout) ? +(options!.timeout as number) : (resolved.timeout || 60)) * 1000);
+      }, (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 60)) * 1000);
 
       // check to compare incoming message
       const correlationId = v4();
@@ -418,11 +487,11 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
         queue = queue.substring(0, queue.indexOf('.'));
       }
 
-      queue = `${namespace()}${queue}`;
+      queue = `${config.namespace}${queue}`;
 
       const message = Buffer.from(JSON.stringify({ pattern, data }));
 
-      if (message.byteLength > messageMaxSize()) {
+      if (message.byteLength > (config.messageMaxSize as number)) {
         await sendStream(queue, message, {
           correlationId,
           replyTo: q.queue
@@ -450,7 +519,7 @@ export function receivePublishedMessage(exchange: string, key: string, callback?
     try {
       const { channel } = await connect();
 
-      exchange = `${namespace()}${exchange}`;
+      exchange = `${config.namespace}${exchange}`;
 
       await channel.assertExchange(exchange, 'fanout', {
         durable: false
@@ -520,7 +589,7 @@ export function publishMessage(exchange: string, key: string, data?: any): Promi
     try {
       const { channel } = await connect();
 
-      exchange = `${namespace()}${exchange}`;
+      exchange = `${config.namespace}${exchange}`;
 
       await channel.assertExchange(exchange, 'fanout', {
         durable: false
@@ -528,22 +597,17 @@ export function publishMessage(exchange: string, key: string, data?: any): Promi
 
       const message = Buffer.from(JSON.stringify({ key, data }));
 
-      if (message.byteLength > messageMaxSize()) {
-        const headers: IStreamHeader = {
-          id: v4(),
-          queue: exchange,
-          index: 0,
-          length: Math.ceil(message.byteLength / messageMaxSize())
-        };
+      if (message.byteLength > (config.messageMaxSize as number)) {
+        const id = v4();
+        const length = Math.ceil(message.byteLength / (config.messageMaxSize as number));
 
-        while (headers.index < headers.length) {
-          const part = headers.index * messageMaxSize();
+        for (let index = 0; index < length; index++) {
+          const part = index * (config.messageMaxSize as number);
+          const headers: IStreamHeader = { id, queue: exchange, index, length };
 
-          channel.publish(exchange, '', message.subarray(part, part + messageMaxSize()), {
+          channel.publish(exchange, '', message.subarray(part, part + (config.messageMaxSize as number)), {
             headers
           });
-
-          headers.index++;
         }
 
       } else {
@@ -567,8 +631,8 @@ export function listen(showInfo: boolean = false): Promise<void> {
       });
 
       // queue & exchange list
-      const queues = (resolved.queues as string || '').split(',').map(queue => queue.trim()).filter(queue => queue.length);
-      const exchanges = (resolved.exchanges as string || '').split(',').map(exchange => exchange.trim()).filter(exchange => exchange.length);
+      const queues = (config.queues as string || '').split(',').map(queue => queue.trim()).filter(queue => queue.length);
+      const exchanges = (config.exchanges as string || '').split(',').map(exchange => exchange.trim()).filter(exchange => exchange.length);
 
       for (const queue of queues) {
         receiveMessage(queue, (params: any) => {
