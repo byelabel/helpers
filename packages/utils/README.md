@@ -398,7 +398,7 @@ const { rootPath, workingPath, prefix } = loadEnv('.env.local');
 
 ## Repository
 
-[github.com/morsaken/web-im-helpers](https://github.com/morsaken/web-im-helpers) — see the workspace README for the companion `@byelabel/react` package.
+[github.com/byelabel/helpers](https://github.com/byelabel/helpers) — see the workspace README for the companion `@byelabel/react` package.
 
 ## License
 

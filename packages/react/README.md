@@ -159,7 +159,7 @@ export default function App() {
 
 ## Repository
 
-[github.com/morsaken/web-im-helpers](https://github.com/morsaken/web-im-helpers) — see the workspace README for the companion `@byelabel/utils` package.
+[github.com/byelabel/helpers](https://github.com/byelabel/helpers) — see the workspace README for the companion `@byelabel/utils` package.
 
 ## License
 
