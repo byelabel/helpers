@@ -279,7 +279,7 @@ await db.disconnect();
 
 ### `@byelabel/utils/rabbit`
 
-RabbitMQ client with auto-reconnect, message streaming for payloads larger than `messageMaxSize` (default 5 MB), and request/response over reply queues.
+RabbitMQ client with auto-reconnect (bounded retry-with-backoff), AMQP heartbeats, message streaming for payloads larger than `messageMaxSize` (default 5 MB), and request/response over reply queues.
 
 ```ts
 import { rabbit } from '@byelabel/utils';
@@ -324,6 +324,12 @@ await rabbit.listen(true);
 | `timeout` | `RABBIT_TIMEOUT` | `30`/`60` (per call) |
 | `queues` | `RABBIT_QUEUES` | — (used by `listen`) |
 | `exchanges` | `RABBIT_EXCHANGES` | — (used by `listen`) |
+| `heartbeat` | `RABBIT_HEARTBEAT` | `60` (seconds; `0` disables) |
+| `maxRetries` | `RABBIT_MAX_RETRIES` | `5` (additional attempts after the first) |
+| `retryDelay` | `RABBIT_RETRY_DELAY` | `500` (ms; initial backoff, doubles per attempt) |
+| `retryMaxDelay` | `RABBIT_RETRY_MAX_DELAY` | `5000` (ms; backoff cap) |
+
+The connection name advertised to RabbitMQ is `${process.env.NAME || 'microservice'}-${pid}`, so each service shows up identifiable in the broker's connections view.
 
 `checkRabbitConfig` throws `AppError('MISSING_RABBIT_HOST')` when host is missing.
 
