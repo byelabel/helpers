@@ -38,6 +38,8 @@ export type IRabbitOptions = {
   maxRetries?: number;
   retryDelay?: number;
   retryMaxDelay?: number;
+  keepAlive?: boolean;
+  keepAliveDelay?: number;
 };
 
 const processId = process.pid;
@@ -69,7 +71,9 @@ function resolveRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
     exchanges: options?.exchanges ?? process.env.RABBIT_EXCHANGES,
     maxRetries: options?.maxRetries ?? Number(process.env.RABBIT_MAX_RETRIES || 5),
     retryDelay: options?.retryDelay ?? Number(process.env.RABBIT_RETRY_DELAY || 500),
-    retryMaxDelay: options?.retryMaxDelay ?? Number(process.env.RABBIT_RETRY_MAX_DELAY || 5000)
+    retryMaxDelay: options?.retryMaxDelay ?? Number(process.env.RABBIT_RETRY_MAX_DELAY || 5000),
+    keepAlive: options?.keepAlive ?? (process.env.RABBIT_KEEP_ALIVE !== 'false'),
+    keepAliveDelay: options?.keepAliveDelay ?? Number(process.env.RABBIT_KEEP_ALIVE_DELAY || 10000)
   };
 }
 
@@ -134,6 +138,8 @@ export function connect(options?: IRabbitOptions): Promise<{ connection: amqp.Ch
         if (!connection[processId]) {
           const conn = await amqp.connect(createURI(config), {
             heartbeat: config.heartbeat,
+            keepAlive: config.keepAlive,
+            keepAliveDelay: config.keepAliveDelay,
             clientProperties: {
               connection_name: `${(process.env.NAME || 'Microservice').toLowerCase().replace(/[^a-z0-9-_]/i, '-')}-${processId}`
             }
