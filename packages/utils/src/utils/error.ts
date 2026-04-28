@@ -121,11 +121,12 @@ export function getErrorOrigin(error: Error): IErrorOrigin | null {
 }
 
 export function getErrorString(error: Error): string {
+  const message = error?.message || '';
   const origin = getErrorOrigin(error);
 
-  if (!origin || !origin.file) return '';
+  if (!origin || !origin.file) return message;
 
   const where = `${origin.file}:${origin.line}:${origin.column}`;
 
-  return `${error?.message} - [${origin.func ? `${origin.func} @ ` : ''}${where}]`;
+  return `${message} - [${origin.func ? `${origin.func} @ ` : ''}${where}]`;
 }

@@ -141,7 +141,8 @@ export function connect(options?: IRabbitOptions): Promise<{ connection: amqp.Ch
           connection[processId] = conn;
 
           conn.on('error', e => {
-            logError('RabbitMQ connection error', e, null, true).catch(() => {});
+            const code = (e as any)?.code;
+            logError('RabbitMQ connection error', e, code ? { code } : null, true).catch(() => {});
           }).on('close', () => {
             logWarning('RabbitMQ connection closed', true).catch(() => {});
 
@@ -156,7 +157,8 @@ export function connect(options?: IRabbitOptions): Promise<{ connection: amqp.Ch
           channel[processId] = ch;
 
           ch.on('error', e => {
-            logError('RabbitMQ channel error', e, null, true).catch(() => {});
+            const code = (e as any)?.code;
+            logError('RabbitMQ channel error', e, code ? { code } : null, true).catch(() => {});
           }).on('close', () => {
             logWarning('RabbitMQ channel closed', true).catch(() => {});
 
