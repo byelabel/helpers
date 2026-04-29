@@ -456,11 +456,9 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
 
       const timeoutMs = (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 60)) * 1000;
 
-      // Reply queues should not outlive the caller. exclusive: dies with the connection,
       // autoDelete: dies when the consumer detaches, expires: broker-side TTL backstop.
       const q = await channel.assertQueue('', {
         durable: false,
-        exclusive: true,
         autoDelete: true,
         expires: timeoutMs
       });
