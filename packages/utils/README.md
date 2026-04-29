@@ -294,6 +294,7 @@ await rabbit.listen(true);
 
 | Option | Env fallback | Default |
 | --- | --- | --- |
+| `name` | `RABBIT_NAME` | `process.env.NAME` → `'microservice'` |
 | `protocol` | `RABBIT_PROTOCOL` | `'amqp'` |
 | `host` | `RABBIT_HOST` | — (required) |
 | `port` | `RABBIT_PORT` | `5672` |
@@ -306,11 +307,13 @@ await rabbit.listen(true);
 | `queues` | `RABBIT_QUEUES` | — (used by `listen`) |
 | `exchanges` | `RABBIT_EXCHANGES` | — (used by `listen`) |
 | `heartbeat` | `RABBIT_HEARTBEAT` | `60` (seconds; `0` disables) |
+| `keepAlive` | `RABBIT_KEEP_ALIVE` | `true` (set `RABBIT_KEEP_ALIVE=false` to disable TCP keepalive) |
+| `keepAliveDelay` | `RABBIT_KEEP_ALIVE_DELAY` | `10000` (ms; idle time before kernel sends keepalive probes) |
 | `maxRetries` | `RABBIT_MAX_RETRIES` | `5` (additional attempts after the first) |
 | `retryDelay` | `RABBIT_RETRY_DELAY` | `500` (ms; initial backoff, doubles per attempt) |
 | `retryMaxDelay` | `RABBIT_RETRY_MAX_DELAY` | `5000` (ms; backoff cap) |
 
-The connection name advertised to RabbitMQ is `${process.env.NAME || 'microservice'}-${pid}`, so each service shows up identifiable in the broker's connections view.
+The connection name advertised to RabbitMQ is `${name}-${pid}` — `name` is taken from the `name` option, falling back to `RABBIT_NAME`, then `process.env.NAME`, then `'microservice'`. Each service shows up identifiable in the broker's connections view.
 
 `checkRabbitConfig` throws `AppError('MISSING_RABBIT_HOST')` when host is missing.
 

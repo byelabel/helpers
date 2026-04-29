@@ -23,23 +23,24 @@ type ISendMessageOptions = {
 };
 
 export type IRabbitOptions = {
-  protocol?: string;
-  host?: string;
-  port?: number | string;
-  user?: string;
-  pass?: string;
-  vhost?: string;
-  namespace?: string;
-  messageMaxSize?: number;
-  timeout?: number;
-  heartbeat?: number;
-  queues?: string;
-  exchanges?: string;
-  maxRetries?: number;
-  retryDelay?: number;
-  retryMaxDelay?: number;
-  keepAlive?: boolean;
-  keepAliveDelay?: number;
+  name?: string,
+  protocol?: string,
+  host?: string,
+  port?: number | string,
+  user?: string,
+  pass?: string,
+  vhost?: string,
+  namespace?: string,
+  messageMaxSize?: number,
+  timeout?: number,
+  heartbeat?: number,
+  queues?: string,
+  exchanges?: string,
+  maxRetries?: number,
+  retryDelay?: number,
+  retryMaxDelay?: number,
+  keepAlive?: boolean,
+  keepAliveDelay?: number
 };
 
 type IPendingReply = { onUndelivered: Function, result: any, returned: boolean };
@@ -64,6 +65,7 @@ let config: IRabbitOptions = {};
 
 function resolveRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
   return {
+    name: options?.name ?? process.env.RABBIT_NAME,
     protocol: options?.protocol ?? process.env.RABBIT_PROTOCOL,
     host: options?.host ?? process.env.RABBIT_HOST,
     port: options?.port ?? process.env.RABBIT_PORT,
@@ -148,7 +150,7 @@ export function connect(options?: IRabbitOptions): Promise<{ connection: amqp.Ch
             keepAlive: config.keepAlive,
             keepAliveDelay: config.keepAliveDelay,
             clientProperties: {
-              connection_name: `${(process.env.NAME || 'Microservice').toLowerCase().replace(/[^a-z0-9-_]/i, '-')}-${processId}`
+              connection_name: `${(config?.name || process.env.NAME || 'Microservice').toLowerCase().replace(/[^a-z0-9-_]/i, '-')}-${processId}`
             }
           });
           connection[processId] = conn;
@@ -454,13 +456,13 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
     try {
       const { channel } = await connect();
 
-      const timeoutMs = (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 60)) * 1000;
+      const expires = (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 60)) * 1000;
 
       // autoDelete: dies when the consumer detaches, expires: broker-side TTL backstop.
       const q = await channel.assertQueue('', {
         durable: false,
         autoDelete: true,
-        expires: timeoutMs
+        expires
       });
 
       const timer = setTimeout(async () => {
@@ -475,7 +477,7 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
         }
 
         reject(error);
-      }, timeoutMs);
+      }, expires);
 
       // check to compare incoming message
       const correlationId = v4();
