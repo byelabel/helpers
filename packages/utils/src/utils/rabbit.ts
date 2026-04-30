@@ -108,10 +108,8 @@ export function checkRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
   }, { abortEarly: false, stripUnknown: true });
 
   if (error) {
-    const field = String(error.details[0].path[0] || 'CONFIG').toUpperCase();
-
     throwAppError(`Invalid RabbitMQ configuration: ${error.message}`, `INVALID_RABBIT_CONFIGURATION`, {
-      field
+      field: error.details[0].path[0]
     });
   }
 
