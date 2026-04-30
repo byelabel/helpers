@@ -21,7 +21,7 @@ export type IRedisOptions = {
 function resolveRedisOptions(options?: IRedisOptions): IRedisOptions {
   return {
     host: options?.host ?? process.env.REDIS_HOST,
-    port: options?.port ?? process.env.REDIS_PORT ?? 6379,
+    port: options?.port ?? Number(process.env.REDIS_PORT || 6379),
     user: options?.user ?? process.env.REDIS_USER,
     pass: options?.pass ?? process.env.REDIS_PASS,
     db: options?.db ?? process.env.REDIS_DB,

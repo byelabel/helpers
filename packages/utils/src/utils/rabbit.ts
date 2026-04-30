@@ -81,7 +81,7 @@ function resolveRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
     maxRetries: options?.maxRetries ?? Number(process.env.RABBIT_MAX_RETRIES || 5),
     retryDelay: options?.retryDelay ?? Number(process.env.RABBIT_RETRY_DELAY || 500),
     retryMaxDelay: options?.retryMaxDelay ?? Number(process.env.RABBIT_RETRY_MAX_DELAY || 5000),
-    keepAlive: options?.keepAlive ?? (process.env.RABBIT_KEEP_ALIVE !== 'false'),
+    keepAlive: options?.keepAlive ?? (!['false', 'FALSE'].includes(process.env.RABBIT_KEEP_ALIVE as string)),
     keepAliveDelay: options?.keepAliveDelay ?? Number(process.env.RABBIT_KEEP_ALIVE_DELAY || 10000)
   };
 }
