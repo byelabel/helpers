@@ -1,3 +1,4 @@
+import joi from 'joi';
 import process from 'node:process';
 import { createClient, createCluster, RedisClientType, RedisClusterType } from 'redis';
 import { AppError, throwAppError } from './error';
@@ -18,25 +19,31 @@ export type IRedisOptions = {
   flush?: boolean;
 };
 
-function resolveRedisOptions(options?: IRedisOptions): IRedisOptions {
-  return {
+const optionsSchema = joi.object<IRedisOptions>({
+  host: joi.string().trim().required(),
+  port: joi.number().integer().min(0).default(6379),
+  user: joi.string().trim().allow('').optional(),
+  pass: joi.string().trim().allow('').optional(),
+  db: joi.alternatives().try(joi.number().integer().min(0), joi.string().trim()).optional(),
+  flush: joi.boolean().truthy('true', 'TRUE', 'True').falsy('false', 'FALSE', 'False').default(false)
+});
+
+export function checkRedisConfig(options?: IRedisOptions): IRedisOptions {
+  const { error, value } = optionsSchema.validate({
     host: options?.host ?? process.env.REDIS_HOST,
-    port: options?.port ?? Number(process.env.REDIS_PORT || 6379),
+    port: options?.port ?? process.env.REDIS_PORT,
     user: options?.user ?? process.env.REDIS_USER,
     pass: options?.pass ?? process.env.REDIS_PASS,
     db: options?.db ?? process.env.REDIS_DB,
-    flush: options?.flush ?? ['true', 'TRUE'].includes(process.env.REDIS_FLUSH_DB as string)
-  };
-}
+    flush: options?.flush ?? process.env.REDIS_FLUSH_DB
+  }, { abortEarly: false, stripUnknown: true });
 
-export function checkRedisConfig(options?: IRedisOptions): IRedisOptions {
-  const opts = resolveRedisOptions(options);
-
-  if (!isNonEmptyString(opts.host)) {
-    throwAppError('Redis host configuration not found', 'MISSING_REDIS_HOST');
+  if (error) {
+    const field = String(error.details[0].path[0] || 'CONFIG').toUpperCase();
+    throwAppError(`Invalid Redis configuration: ${error.message}`, `INVALID_REDIS_${field}`);
   }
 
-  return opts;
+  return value;
 }
 
 function createURI(host: string, port: string | number, user: string, pass: string, db?: string | number) {

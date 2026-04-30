@@ -1,4 +1,5 @@
 import amqp from 'amqplib';
+import joi from 'joi';
 import process from 'node:process';
 import { v4 } from 'uuid';
 import { AppError, throwAppError } from './error';
@@ -63,8 +64,29 @@ const pendingReplies: { [correlationId: string]: IPendingReply } = {};
 
 let config: IRabbitOptions = {};
 
-function resolveRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
-  return {
+const optionsSchema = joi.object<IRabbitOptions>({
+  name: joi.string().trim().allow('').optional(),
+  protocol: joi.string().trim().allow('').optional(),
+  host: joi.string().trim().required(),
+  port: joi.alternatives().try(joi.number().integer().min(0), joi.string().trim()).optional(),
+  user: joi.string().trim().allow('').optional(),
+  pass: joi.string().trim().allow('').optional(),
+  vhost: joi.string().trim().allow('').optional(),
+  namespace: joi.string().trim().allow('').optional(),
+  messageMaxSize: joi.number().integer().min(0).default(5000000),
+  timeout: joi.number().min(0).default(0),
+  heartbeat: joi.number().integer().min(0).default(60),
+  queues: joi.string().trim().allow('').optional(),
+  exchanges: joi.string().trim().allow('').optional(),
+  maxRetries: joi.number().integer().min(0).default(5),
+  retryDelay: joi.number().integer().min(0).default(500),
+  retryMaxDelay: joi.number().integer().min(0).default(5000),
+  keepAlive: joi.boolean().truthy('true', 'TRUE', 'True').falsy('false', 'FALSE', 'False').default(true),
+  keepAliveDelay: joi.number().integer().min(0).default(10000)
+});
+
+export function checkRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
+  const { error, value } = optionsSchema.validate({
     name: options?.name ?? process.env.RABBIT_NAME,
     protocol: options?.protocol ?? process.env.RABBIT_PROTOCOL,
     host: options?.host ?? process.env.RABBIT_HOST,
@@ -73,27 +95,24 @@ function resolveRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
     pass: options?.pass ?? process.env.RABBIT_PASS,
     vhost: options?.vhost ?? process.env.RABBIT_VHOST,
     namespace: options?.namespace ?? process.env.RABBIT_NAMESPACE,
-    messageMaxSize: options?.messageMaxSize ?? Number(process.env.RABBIT_MESSAGE_MAX_SIZE || 5000000),
-    timeout: options?.timeout ?? Number(process.env.RABBIT_TIMEOUT || 0),
-    heartbeat: options?.heartbeat ?? Number(process.env.RABBIT_HEARTBEAT || 60),
+    messageMaxSize: options?.messageMaxSize ?? process.env.RABBIT_MESSAGE_MAX_SIZE,
+    timeout: options?.timeout ?? process.env.RABBIT_TIMEOUT,
+    heartbeat: options?.heartbeat ?? process.env.RABBIT_HEARTBEAT,
     queues: options?.queues ?? process.env.RABBIT_QUEUES,
     exchanges: options?.exchanges ?? process.env.RABBIT_EXCHANGES,
-    maxRetries: options?.maxRetries ?? Number(process.env.RABBIT_MAX_RETRIES || 5),
-    retryDelay: options?.retryDelay ?? Number(process.env.RABBIT_RETRY_DELAY || 500),
-    retryMaxDelay: options?.retryMaxDelay ?? Number(process.env.RABBIT_RETRY_MAX_DELAY || 5000),
-    keepAlive: options?.keepAlive ?? (!['false', 'FALSE'].includes(process.env.RABBIT_KEEP_ALIVE as string)),
-    keepAliveDelay: options?.keepAliveDelay ?? Number(process.env.RABBIT_KEEP_ALIVE_DELAY || 10000)
-  };
-}
+    maxRetries: options?.maxRetries ?? process.env.RABBIT_MAX_RETRIES,
+    retryDelay: options?.retryDelay ?? process.env.RABBIT_RETRY_DELAY,
+    retryMaxDelay: options?.retryMaxDelay ?? process.env.RABBIT_RETRY_MAX_DELAY,
+    keepAlive: options?.keepAlive ?? process.env.RABBIT_KEEP_ALIVE,
+    keepAliveDelay: options?.keepAliveDelay ?? process.env.RABBIT_KEEP_ALIVE_DELAY
+  }, { abortEarly: false, stripUnknown: true });
 
-export function checkRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
-  const opts = resolveRabbitConfig(options);
-
-  if (!isNonEmptyString(opts.host)) {
-    throwAppError('RabbitMQ host configuration not found', 'MISSING_RABBIT_HOST');
+  if (error) {
+    const field = String(error.details[0].path[0] || 'CONFIG').toUpperCase();
+    throwAppError(`Invalid RabbitMQ configuration: ${error.message}`, `INVALID_RABBIT_${field}`);
   }
 
-  return opts;
+  return value;
 }
 
 function createURI(opts: IRabbitOptions): string {
