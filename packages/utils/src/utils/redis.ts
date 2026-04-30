@@ -21,7 +21,7 @@ export type IRedisOptions = {
 function resolveRedisOptions(options?: IRedisOptions): IRedisOptions {
   return {
     host: options?.host ?? process.env.REDIS_HOST,
-    port: options?.port ?? process.env.REDIS_PORT,
+    port: options?.port ?? process.env.REDIS_PORT ?? 6379,
     user: options?.user ?? process.env.REDIS_USER,
     pass: options?.pass ?? process.env.REDIS_PASS,
     db: options?.db ?? process.env.REDIS_DB,
@@ -51,7 +51,7 @@ function createURI(host: string, port: string | number, user: string, pass: stri
     url.push(`${auth.join(':')}@`);
   }
 
-  url.push(`${host}:${+port || 5672}`);
+  url.push(`${host}:${+port}`);
 
   if (isNumeric(db)) {
     url.push(`/${db}`);
