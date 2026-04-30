@@ -60,7 +60,7 @@ describe('checkRabbitConfig', () => {
     expect(opts.messageMaxSize).toBe(5000000);
     expect(opts.timeout).toBe(0);
     expect(opts.heartbeat).toBe(60);
-    expect(opts.maxRetries).toBe(5);
+    expect(opts.maxRetries).toBe(10);
     expect(opts.retryDelay).toBe(500);
     expect(opts.retryMaxDelay).toBe(5000);
     expect(opts.keepAlive).toBe(true);
