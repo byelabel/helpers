@@ -30,7 +30,7 @@ describe('checkRedisConfig', () => {
     try {
       checkRedisConfig();
     } catch (e) {
-      expect((e as AppError).code).toBe('INVALID_REDIS_HOST');
+      expect((e as AppError).args?.field).toBe('host');
     }
   });
 

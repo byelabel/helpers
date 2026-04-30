@@ -49,7 +49,7 @@ describe('checkRabbitConfig', () => {
     try {
       checkRabbitConfig();
     } catch (e) {
-      expect((e as AppError).code).toBe('INVALID_RABBIT_HOST');
+      expect((e as AppError).args?.field).toBe('host');
     }
   });
 
