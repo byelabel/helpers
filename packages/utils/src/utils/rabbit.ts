@@ -78,7 +78,7 @@ const optionsSchema = joi.object<IRabbitOptions>({
   heartbeat: joi.number().integer().min(0).default(60),
   queues: joi.string().trim().allow('').optional(),
   exchanges: joi.string().trim().allow('').optional(),
-  maxRetries: joi.number().integer().min(0).default(5),
+  maxRetries: joi.number().integer().min(0).default(10),
   retryDelay: joi.number().integer().min(0).default(500),
   retryMaxDelay: joi.number().integer().min(0).default(5000),
   keepAlive: joi.boolean().truthy('true', 'TRUE', 'True').falsy('false', 'FALSE', 'False').default(true),
@@ -109,7 +109,10 @@ export function checkRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
 
   if (error) {
     const field = String(error.details[0].path[0] || 'CONFIG').toUpperCase();
-    throwAppError(`Invalid RabbitMQ configuration: ${error.message}`, `INVALID_RABBIT_${field}`);
+
+    throwAppError(`Invalid RabbitMQ configuration: ${error.message}`, `INVALID_RABBIT_CONFIGURATION`, {
+      field
+    });
   }
 
   return value;
@@ -161,7 +164,7 @@ export function connect(options?: IRabbitOptions): Promise<{ connection: amqp.Ch
 
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         if (!connection[processId]) {
           const conn = await amqp.connect(createURI(config), {
@@ -230,7 +233,7 @@ export function connect(options?: IRabbitOptions): Promise<{ connection: amqp.Ch
         if (attempt < maxRetries) {
           const delay = Math.min(maxDelay, baseDelay * Math.pow(2, attempt));
 
-          logWarning(`RabbitMQ connect failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms: ${lastError.message}`, true).catch(() => {});
+          logWarning(`RabbitMQ connect failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms: ${lastError.message}`, true).catch(() => {});
 
           await new Promise(r => setTimeout(r, delay));
         }

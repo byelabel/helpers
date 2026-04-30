@@ -40,7 +40,10 @@ export function checkRedisConfig(options?: IRedisOptions): IRedisOptions {
 
   if (error) {
     const field = String(error.details[0].path[0] || 'CONFIG').toUpperCase();
-    throwAppError(`Invalid Redis configuration: ${error.message}`, `INVALID_REDIS_${field}`);
+
+    throwAppError(`Invalid Redis configuration: ${error.message}`, `INVALID_REDIS_CONFIGURATION`, {
+      field
+    });
   }
 
   return value;
