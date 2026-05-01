@@ -46,43 +46,50 @@ export type IDBOptions = {
   modelPath?: string
 };
 
-function resolveDBOptions(options?: IDBOptions): IDBOptions {
-  return {
+const optionsSchema = joiBase.object<IDBOptions>({
+  engine: joi.string().trim().valid('mysql', 'postgres', 'sqlite', 'db2', 'mariadb', 'mssql').allow('').optional(),
+  host: joi.string().trim().required(),
+  port: joi.alternatives().try(joi.number().integer().min(0), joi.string().trim()).optional(),
+  name: joi.string().trim().required(),
+  user: joi.string().trim().required(),
+  pass: joi.string().trim().allow('').optional(),
+  useSSL: joi.boolean().truthy('true', 'TRUE', 'True').falsy('false', 'FALSE', 'False').default(false),
+  prefix: joi.string().trim().allow('').optional(),
+  skipSync: joi.boolean().truthy('true', 'TRUE', 'True').falsy('false', 'FALSE', 'False').default(false),
+  forceSync: joi.boolean().truthy('true', 'TRUE', 'True').falsy('false', 'FALSE', 'False').default(false),
+  debug: joi.boolean().truthy('true', 'TRUE', 'True').falsy('false', 'FALSE', 'False').default(false),
+  modelPath: joi.string().trim().allow('').optional()
+});
+
+export function checkDBConfig(options?: IDBOptions): IDBOptions {
+  const { error, value } = optionsSchema.validate({
     engine: options?.engine ?? process.env.DB_ENGINE,
     host: options?.host ?? process.env.DB_HOST,
     port: options?.port ?? process.env.DB_PORT,
     name: options?.name ?? process.env.DB_NAME,
     user: options?.user ?? process.env.DB_USER,
     pass: options?.pass ?? process.env.DB_PASS,
-    useSSL: options?.useSSL ?? ['true', 'TRUE'].includes(process.env.DB_USE_SSL as string),
+    useSSL: options?.useSSL ?? process.env.DB_USE_SSL,
     prefix: options?.prefix ?? process.env.DB_PREFIX,
-    skipSync: options?.skipSync ?? ['true', 'TRUE'].includes(process.env.DB_SKIP_SYNC as string),
-    forceSync: options?.forceSync ?? ['true', 'TRUE'].includes(process.env.DB_FORCE_SYNC as string),
-    debug: options?.debug ?? ['true', 'TRUE'].includes(process.env.DB_DEBUG as string),
-    modelPath: resolve(options?.modelPath ?? process.env.DB_MODEL_PATH ?? dirname(require.main?.filename ?? ''))
-  };
-}
+    skipSync: options?.skipSync ?? process.env.DB_SKIP_SYNC,
+    forceSync: options?.forceSync ?? process.env.DB_FORCE_SYNC,
+    debug: options?.debug ?? process.env.DB_DEBUG,
+    modelPath: options?.modelPath ?? process.env.DB_MODEL_PATH
+  }, { abortEarly: false, stripUnknown: true });
 
-export function checkDBConfig(options?: IDBOptions): IDBOptions {
-  const opts = resolveDBOptions(options);
-
-  if (!isNonEmptyString(opts.host)) {
-    throwAppError('Database host configuration not found', 'MISSING_DB_HOST');
+  if (error) {
+    throwAppError(`Invalid Database configuration: ${error.message}`, `INVALID_DB_CONFIGURATION`, {
+      field: error.details[0].path[0]
+    });
   }
 
-  if (!isNonEmptyString(opts.name)) {
-    throwAppError('Database name configuration not found', 'MISSING_DB_NAME');
-  }
+  value.modelPath = resolve(value.modelPath || dirname(require.main?.filename ?? ''));
 
-  if (!isNonEmptyString(opts.user)) {
-    throwAppError('Database user configuration not found', 'MISSING_DB_USER');
-  }
-
-  return opts;
+  return value;
 }
 
 async function sequelizeConnection(dbName?: string, models?: string[], options?: IDBOptions): Promise<Sequelize> {
-  const opts = resolveDBOptions(options);
+  const opts = options ?? {};
 
   const hosts = (opts.host as string || '').split(',').map(host => host.trim()).filter(host => isNonEmptyString(host));
   const ports = String(opts.port ?? '').split(',').map(port => port.trim()).filter(port => isNumeric(port));
@@ -127,7 +134,7 @@ async function sequelizeConnection(dbName?: string, models?: string[], options?:
   } : write;
 
   return new Sequelize({
-    dialect: (opts.engine || 'postgresql') as Dialect,
+    dialect: (opts.engine || 'postgres') as Dialect,
     ...params,
     ...(isNonEmptyString(dbName) ? { database: dbName } : {}),
     ...(isNonEmptyArray(models) ? { models } : {}),
@@ -136,7 +143,7 @@ async function sequelizeConnection(dbName?: string, models?: string[], options?:
 }
 
 async function create(dbName?: string, options?: IDBOptions) {
-  const opts = resolveDBOptions(options);
+  const opts = options ?? {};
 
   // create connection
   const sequelize = await sequelizeConnection(undefined, undefined, opts);
@@ -219,20 +226,20 @@ export async function connect(options?: IDBOptions): Promise<Sequelize> {
 
       resolve(connection[processId]);
     } catch (e) {
-      const opts = resolveDBOptions(options);
+      const debug = options?.debug ?? ['true', 'TRUE'].includes(process.env.DB_DEBUG as string);
 
-      if (opts?.debug) {
+      if (debug) {
         showMessages([
-          `DB_ENGINE     : ${opts.engine}`,
-          `DB_HOST       : ${opts.host}`,
-          `DB_PORT       : ${opts.port}`,
-          `DB_NAME       : ${opts.name}`,
-          `DB_USER       : ${opts.user}`,
-          `DB_PASS       : ${opts.pass}`,
-          `DB_USE_SSL    : ${opts.useSSL}`,
-          `DB_PREFIX     : ${opts.prefix}`,
-          `DB_SKIP_SYNC  : ${opts.skipSync}`,
-          `DB_FORCE_SYNC : ${opts.forceSync}`
+          `DB_ENGINE     : ${options?.engine ?? process.env.DB_ENGINE}`,
+          `DB_HOST       : ${options?.host ?? process.env.DB_HOST}`,
+          `DB_PORT       : ${options?.port ?? process.env.DB_PORT}`,
+          `DB_NAME       : ${options?.name ?? process.env.DB_NAME}`,
+          `DB_USER       : ${options?.user ?? process.env.DB_USER}`,
+          `DB_PASS       : ${options?.pass ?? process.env.DB_PASS}`,
+          `DB_USE_SSL    : ${options?.useSSL ?? process.env.DB_USE_SSL}`,
+          `DB_PREFIX     : ${options?.prefix ?? process.env.DB_PREFIX}`,
+          `DB_SKIP_SYNC  : ${options?.skipSync ?? process.env.DB_SKIP_SYNC}`,
+          `DB_FORCE_SYNC : ${options?.forceSync ?? process.env.DB_FORCE_SYNC}`
         ]);
       }
 

@@ -137,7 +137,10 @@ function createURI(opts: IRabbitOptions): string {
   return url.join('');
 }
 
-export function connect(options?: IRabbitOptions): Promise<{ connection: amqp.ChannelModel, channel: amqp.ConfirmChannel }> {
+export function connect(options?: IRabbitOptions): Promise<{
+  connection: amqp.ChannelModel,
+  channel: amqp.ConfirmChannel
+}> {
   if (connection[processId] && channel[processId]) {
     return Promise.resolve({
       connection: connection[processId]!,
