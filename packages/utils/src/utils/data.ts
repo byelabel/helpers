@@ -31,7 +31,7 @@ type ISuccessResult = {
 
 export type IResult = ISuccessResult | IErrorResult | IAppError;
 
-export function toResult(error?: IAppError | Error, payload?: any): IResult {
+export function toResult(error?: IAppError | Error | null, payload?: any): IResult {
   if (error) {
     if (!(error instanceof AppError)) {
       return new AppError(error.message, 'SYSTEM_ERROR');
