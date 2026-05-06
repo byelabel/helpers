@@ -2,7 +2,7 @@ import { isFunction, isNonEmptyString, isNonNullObject } from './validator';
 
 type EnvVars = Record<string, string | undefined>;
 
-const isNodeRuntime = isNonEmptyString(process?.versions?.node) && isFunction(process?.cwd);
+const isNodeRuntime = typeof process !== 'undefined' && isNonEmptyString(process?.versions?.node) && isFunction(process?.cwd);
 
 function normalizeRoutePrefix(value: unknown): string {
   return ((value as string) || '').split('/').map(uri => uri.trim()).filter(uri => uri.length).join('/');
@@ -48,7 +48,7 @@ export function loadEnv(envFile: string = '.env', options: LoadEnvOptions = {}) 
         }
       }
     }
-  } else if (isNonNullObject(process?.env)) {
+  } else if (typeof process !== 'undefined' && isNonNullObject(process?.env)) {
     // browser: pick up whatever the bundler inlined into process.env
     parsedVars = { ...(process.env as EnvVars), ...parsedVars };
   }
