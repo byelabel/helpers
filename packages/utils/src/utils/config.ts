@@ -2,7 +2,7 @@ import { isFunction, isNonEmptyString, isNonNullObject } from './validator';
 
 type EnvVars = Record<string, string | undefined>;
 
-const isNodeRuntime = isNonEmptyString(process?.versions?.node) && isFunction(process.cwd);
+const isNodeRuntime = isNonEmptyString(process?.versions?.node) && isFunction(process?.cwd);
 
 function normalizeRoutePrefix(value: unknown): string {
   return ((value as string) || '').split('/').map(uri => uri.trim()).filter(uri => uri.length).join('/');
