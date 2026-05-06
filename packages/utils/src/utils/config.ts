@@ -1,41 +1,59 @@
-import dotenv from 'dotenv';
-import cluster from 'node:cluster';
-import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import process from 'node:process';
-import { isNonEmptyString } from './validator';
+import { isFunction, isNonEmptyString, isNonNullObject } from './validator';
 
-export function loadEnv(envFile = '.env') {
-  // root path
-  const rootPath = resolve(process.cwd());
+type EnvVars = Record<string, string | undefined>;
 
-  // working path
-  const workingPath = resolve(dirname(require.main?.filename ?? ''));
+const isNodeRuntime = isNonEmptyString(process?.versions?.node) && isFunction(process.cwd);
 
-  // load environment variables
-  const filePath = join(rootPath, envFile);
+function normalizeRoutePrefix(value: unknown): string {
+  return ((value as string) || '').split('/').map(uri => uri.trim()).filter(uri => uri.length).join('/');
+}
 
-  let routePrefix = '';
+export interface LoadEnvOptions {
+  // explicit env source — useful in browsers where the bundler exposes envs
+  // through `import.meta.env` or a custom object
+  vars?: EnvVars;
+}
 
-  if (existsSync(filePath)) {
-    // set environment
-    const env = dotenv.config({
-      path: filePath,
-      quiet: true
-    });
+export function loadEnv(envFile: string = '.env', options: LoadEnvOptions = {}) {
+  let rootPath = '';
+  let workingPath = '';
+  let parsedVars: EnvVars = isNonNullObject(options.vars) ? { ...options.vars } : {};
 
-    if (env.error) {
-      console.error(env.error);
-      process.exit(1);
-    } else {
-      // prefix
-      routePrefix = (((env.parsed as any).ROUTE_PREFIX || '') as string).split('/').map(uri => uri.trim()).filter(uri => uri.length).join('/');
+  if (isNodeRuntime) {
+    // lazy-required so browser bundlers don't try to resolve node-only modules
+    const dotenv = require('dotenv');
+    const cluster = require('node:cluster');
+    const { existsSync } = require('node:fs');
+    const { dirname, join, resolve } = require('node:path');
 
-      if (cluster.isPrimary) {
-        console.log(`Environment variables loaded: "${envFile}"`);
+    rootPath = resolve(process.cwd());
+    workingPath = resolve(dirname(require.main?.filename ?? ''));
+
+    const filePath = join(rootPath, envFile);
+
+    if (existsSync(filePath)) {
+      const env = dotenv.config({
+        path: filePath,
+        quiet: true
+      });
+
+      if (env.error) {
+        console.error(env.error);
+        process.exit(1);
+      } else {
+        parsedVars = { ...parsedVars, ...(env.parsed as EnvVars) };
+
+        if (cluster.isPrimary) {
+          console.log(`Environment variables loaded: "${envFile}"`);
+        }
       }
     }
+  } else if (isNonNullObject(process?.env)) {
+    // browser: pick up whatever the bundler inlined into process.env
+    parsedVars = { ...(process.env as EnvVars), ...parsedVars };
   }
+
+  const routePrefix = normalizeRoutePrefix(parsedVars.ROUTE_PREFIX);
 
   return {
     rootPath,
@@ -44,14 +62,16 @@ export function loadEnv(envFile = '.env') {
   };
 }
 
-// autoload .env
-const env = loadEnv();
+// autoload .env (Node only — browsers get their envs inlined by the bundler)
+if (isNodeRuntime) {
+  const env = loadEnv();
 
-// set the working path
-process.env.WORKING_PATH = env.workingPath;
+  // set the working path
+  process.env.WORKING_PATH = env.workingPath;
 
-// set the root path
-process.env.ROOT_PATH = env.rootPath;
+  // set the root path
+  process.env.ROOT_PATH = env.rootPath;
 
-// set route prefix
-process.env.ROUTE_PREFIX = env.routePrefix;
+  // set route prefix
+  process.env.ROUTE_PREFIX = env.routePrefix;
+}

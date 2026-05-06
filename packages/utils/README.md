@@ -389,15 +389,25 @@ res.json(responseData(null, { token: '...' }));
 
 ### `config`
 
-Imported for side effects: sets `process.env.WORKING_PATH`, `ROOT_PATH`, normalizes `ROUTE_PREFIX`, then autoloads `.env` from the workspace root. Imported automatically by other modules — you rarely import it directly.
-
-For additional env files, call `loadEnv` explicitly:
+Works in **both Node and the browser**. In Node it autoloads `.env` from `process.cwd()` and sets `process.env.WORKING_PATH`, `ROOT_PATH`, normalized `ROUTE_PREFIX`. In the browser the autoload is skipped (no filesystem) — `loadEnv` returns empty paths and reads `ROUTE_PREFIX` from whatever the bundler exposes.
 
 ```ts
 import { loadEnv } from '@byelabel/utils/config';
 
-const { rootPath, workingPath, prefix } = loadEnv('.env.local');
+// Node — read .env from cwd
+const { rootPath, workingPath, routePrefix } = loadEnv();
+
+// Node — named env file
+loadEnv('.env.staging');
+
+// Browser (Vite) — pass bundler-inlined envs
+loadEnv('.env', { vars: import.meta.env });
+
+// Anywhere — explicit override (file values still win in Node when both are present)
+loadEnv('.env', { vars: { ROUTE_PREFIX: '/api/v1' } });
 ```
+
+`ROUTE_PREFIX` is normalized: leading/trailing slashes are trimmed and collapsed, then a single leading `/` is added (`api/v1/` → `/api/v1`, `///` → `''`). In the browser, `rootPath` and `workingPath` are always `''` — they have no meaning outside Node.
 
 ## Repository
 
