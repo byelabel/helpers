@@ -22,6 +22,10 @@
       "types": "./build/utils/index.d.ts",
       "default": "./build/utils/index.js"
     },
+    "./color": {
+      "types": "./build/utils/color.d.ts",
+      "default": "./build/utils/color.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
