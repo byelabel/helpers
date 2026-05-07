@@ -18,6 +18,10 @@
       "types": "./build/contexts/index.d.ts",
       "default": "./build/contexts/index.js"
     },
+    "./utils": {
+      "types": "./build/utils/index.d.ts",
+      "default": "./build/utils/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
