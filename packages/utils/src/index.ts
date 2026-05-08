@@ -12,6 +12,7 @@ export * from './utils/output';
 export * from './utils/validator';
 
 export * as number from './utils/number';
+export * as money from './utils/money';
 
 export * as db from './utils/db';
 export * as rabbit from './utils/rabbit';

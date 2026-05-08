@@ -181,6 +181,48 @@ formatBytes(2048);                      // '2.0 KB'
 formatBytes(5 * 1024 * 1024);           // '5.0 MB'
 ```
 
+### `money`
+
+Currency-aware money formatting with built-in zero/three-decimal currency tables (e.g. JPY/KRW have 0, KWD/BHD have 3) and minor-unit (cents) conversion. Exposed as a namespace to avoid colliding with `number.format`.
+
+```ts
+import { money } from '@byelabel/utils';
+// or: import * as money from '@byelabel/utils/money';
+
+money.format(1234.5);                                  // '$1,234.50'
+money.format(1500, { code: 'JPY' });                   // '¥1,500'   (zero-decimal)
+money.format(1.234, { code: 'KWD', locale: 'en-US' }); // 'KWD 1.234' (three-decimal)
+money.format(1234.5, { code: 'EUR', locale: 'de-DE' });// '1.234,50 €'
+
+money.format(1050, { minor: true });                   // '$10.50'   (1050 cents → $10.50)
+money.format(10.5, { decimals: false });               // '$11'      (suppress fraction digits)
+money.format(10.5, { symbol: false });                 // '10.50'    (no currency symbol)
+
+money.toMinor(10.5);                                   // 1050   (USD → cents)
+money.toMinor(1.234, 'KWD');                           // 1234   (3 decimals)
+money.toMinor(1500, 'JPY');                            // 1500   (0 decimals, no scale)
+
+money.toMajor(1050);                                   // 10.5
+money.toMajor(1234, 'KWD');                            // 1.234
+
+money.getCurrencyDecimals('USD');                      // 2
+money.getCurrencyDecimals('JPY');                      // 0
+money.getCurrencyDecimals('KWD');                      // 3
+
+money.isZeroDecimalCurrency('JPY');                    // true
+money.isZeroDecimalCurrency('USD');                    // false
+```
+
+`format` accepts `MoneyFormatOptions`:
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `code` | `'USD'` | ISO 4217 currency code |
+| `locale` | `'en-US'` | BCP 47 locale tag |
+| `minor` | `false` | Treat input as minor units (cents) and convert before formatting |
+| `decimals` | `true` | When `false`, fraction digits are forced to 0 |
+| `symbol` | `true` | When `false`, formats as plain decimal without the currency symbol |
+
 ### `dto`
 
 Joi schema validation + a generic data-mapping wrapper.
