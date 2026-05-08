@@ -182,8 +182,8 @@ toNumber('1.236', 2);                   // 1.24 (rounded to 2 dp)
 toNumber('abc');                        // 0 (non-numeric → 0)
 
 number.format(1234567.89);              // '1,234,567.89'
-number.format(1234.5, undefined, 'tr-TR'); // '1.234,5'
-number.format(1.5, { minimumFractionDigits: 3 }); // '1.500'
+number.format(1234.5, 'tr-TR'); // '1.234,5'
+number.format(1.5, 'en-US', { minimumFractionDigits: 3 }); // '1.500'
 
 number.currency(1234.5);                // '$1,234.50'
 number.currency(10, 'EUR', 'en-US');    // '€10.00'
