@@ -1,0 +1,44 @@
+'package: utils':
+  - changed-files:
+      - any-glob-to-any-file: 'packages/utils/**'
+
+'package: react':
+  - changed-files:
+      - any-glob-to-any-file: 'packages/react/**'
+
+'docs':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - '**/README.md'
+
+'deps':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/package.json'
+          - 'pnpm-lock.yaml'
+          - 'pnpm-workspace.yaml'
+
+'ci':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+
+'feat':
+  - head-branch:
+      - '^feat/'
+      - '^feature/'
+
+'fix':
+  - head-branch:
+      - '^fix/'
+      - '^bugfix/'
+      - '^hotfix/'
+
+'chore':
+  - head-branch:
+      - '^chore/'
+
+'breaking':
+  - head-branch:
+      - '^breaking/'

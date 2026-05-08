@@ -200,6 +200,48 @@ formatBytes(2048);                      // '2.0 KB'
 formatBytes(5 * 1024 * 1024);           // '5.0 MB'
 ```
 
+### `@byelabel/utils/money`
+
+Currency-aware money formatting with built-in zero/three-decimal currency tables (e.g. JPY/KRW have 0, KWD/BHD have 3) and minor-unit (cents) conversion. Exposed as a namespace to avoid colliding with `number.format`.
+
+```ts
+import { money } from '@byelabel/utils';
+// or: import * as money from '@byelabel/utils/money';
+
+money.format(1234.5);                                  // '$1,234.50'
+money.format(1500, { code: 'JPY' });                   // '¥1,500'   (zero-decimal)
+money.format(1.234, { code: 'KWD', locale: 'en-US' }); // 'KWD 1.234' (three-decimal)
+money.format(1234.5, { code: 'EUR', locale: 'de-DE' });// '1.234,50 €'
+
+money.format(1050, { minor: true });                   // '$10.50'   (1050 cents → $10.50)
+money.format(10.5, { decimals: false });               // '$11'      (suppress fraction digits)
+money.format(10.5, { symbol: false });                 // '10.50'    (no currency symbol)
+
+money.toMinor(10.5);                                   // 1050   (USD → cents)
+money.toMinor(1.234, 'KWD');                           // 1234   (3 decimals)
+money.toMinor(1500, 'JPY');                            // 1500   (0 decimals, no scale)
+
+money.toMajor(1050);                                   // 10.5
+money.toMajor(1234, 'KWD');                            // 1.234
+
+money.getCurrencyDecimals('USD');                      // 2
+money.getCurrencyDecimals('JPY');                      // 0
+money.getCurrencyDecimals('KWD');                      // 3
+
+money.isZeroDecimalCurrency('JPY');                    // true
+money.isZeroDecimalCurrency('USD');                    // false
+```
+
+`format` accepts `MoneyFormatOptions`:
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `code` | `'USD'` | ISO 4217 currency code |
+| `locale` | `'en-US'` | BCP 47 locale tag |
+| `minor` | `false` | Treat input as minor units (cents) and convert before formatting |
+| `decimals` | `true` | When `false`, fraction digits are forced to 0 |
+| `symbol` | `true` | When `false`, formats as plain decimal without the currency symbol |
+
 ### `@byelabel/utils/dto`
 
 Joi schema validation + a generic data-mapping wrapper.
@@ -408,15 +450,25 @@ res.json(responseData(null, { token: '...' }));
 
 ### `@byelabel/utils/config`
 
-Imported for side effects: sets `process.env.WORKING_PATH`, `ROOT_PATH`, normalizes `ROUTE_PREFIX`, then autoloads `.env` from the workspace root. Imported automatically by other modules — you rarely import it directly.
-
-For additional env files, call `loadEnv` explicitly:
+Works in **both Node and the browser**. In Node it autoloads `.env` from `process.cwd()` and sets `process.env.WORKING_PATH`, `ROOT_PATH`, normalized `ROUTE_PREFIX`. In the browser the autoload is skipped (no filesystem) — `loadEnv` returns empty paths and reads `ROUTE_PREFIX` from whatever the bundler exposes.
 
 ```ts
 import { loadEnv } from '@byelabel/utils/config';
 
-const { rootPath, workingPath, prefix } = loadEnv('.env.local');
+// Node — read .env from cwd
+const { rootPath, workingPath, routePrefix } = loadEnv();
+
+// Node — named env file
+loadEnv('.env.staging');
+
+// Browser (Vite) — pass bundler-inlined envs
+loadEnv('.env', { vars: import.meta.env });
+
+// Anywhere — explicit override (file values still win in Node when both are present)
+loadEnv('.env', { vars: { ROUTE_PREFIX: '/api/v1' } });
 ```
+
+`ROUTE_PREFIX` is normalized: leading/trailing slashes are trimmed and collapsed, then a single leading `/` is added (`api/v1/` → `/api/v1`, `///` → `''`). In the browser, `rootPath` and `workingPath` are always `''` — they have no meaning outside Node.
 
 ---
 
@@ -431,8 +483,9 @@ ESM only. React 18+ peer.
 ```ts
 import { useDebouncedValue, useTimeout } from '@byelabel/react/hooks';
 import { AppProvider, useAppContext } from '@byelabel/react/contexts';
+import { stringToColor, hexToRGBA, shader } from '@byelabel/react/color';
 // or flat barrel:
-import { useDebouncedValue, AppProvider } from '@byelabel/react';
+import { useDebouncedValue, AppProvider, stringToColor } from '@byelabel/react';
 ```
 
 ### Hooks
@@ -572,6 +625,41 @@ export default function App() {
 ```
 
 `useAppContext` throws if used outside `<AppProvider>`.
+
+### Color utilities
+
+Pure functions for working with hex colors. Framework-agnostic — usable outside React.
+
+#### `stringToColor(str): string`
+
+Deterministic hex color derived from any string. Useful for avatar backgrounds, tag chips, or any "stable color per identifier" UI.
+
+```ts
+const bg = stringToColor(user.email); // e.g. '#3F8AC2'
+
+<Avatar style={{ backgroundColor: bg }}>{user.initials}</Avatar>
+```
+
+#### `hexToRGBA(hex, opacity): string`
+
+Converts a 3- or 6-digit hex (with or without `#`) to a CSS `rgba()` string.
+
+```ts
+hexToRGBA('#FF8800', 0.5); // 'rgba(255, 136, 0, 0.5)'
+hexToRGBA('0F0', 0.25);    // 'rgba(0, 255, 0, 0.25)'
+
+<div style={{ boxShadow: `0 4px 12px ${hexToRGBA(theme.primary, 0.25)}` }} />
+```
+
+#### `shader(hex, percent?): string`
+
+Lightens (`percent > 0`) or darkens (`percent < 0`) a 6-digit hex color. Channels are clamped to 255. Defaults to `0` (no-op).
+
+```ts
+shader('#336699',  50); // '#4c99e5' — 50% lighter
+shader('#336699', -50); // '#19334c' — 50% darker
+shader('#FFFFFF',  50); // '#ffffff' — clamped
+```
 
 ---
 
