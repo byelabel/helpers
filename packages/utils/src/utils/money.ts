@@ -38,14 +38,15 @@ export function toMajor(minor: number | string, code = 'USD'): number {
 }
 
 export interface MoneyFormatOptions {
+  currency?: string;
   locale?: string;
   minor?: boolean;
   decimals?: boolean;
   symbol?: boolean;
 }
 
-export function format(amount: number | string, currency = 'USD', options: MoneyFormatOptions = {}): string {
-  const { locale, minor = false, decimals = true, symbol = true } = options;
+export function format(amount: number | string, options: MoneyFormatOptions = {}): string {
+  const { currency = 'USD', locale, minor = false, decimals = true, symbol = true } = options;
 
   if (!isNumeric(amount)) amount = 0;
 

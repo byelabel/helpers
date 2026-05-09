@@ -94,16 +94,16 @@ describe('format', () => {
   });
 
   it('formats zero-decimal currencies without decimals', () => {
-    expect(format(1500, { code: 'JPY' })).toBe('¥1,500');
+    expect(format(1500, { currency: 'JPY' })).toBe('¥1,500');
   });
 
   it('formats three-decimal currencies with three fraction digits', () => {
-    expect(format(1.234, { code: 'KWD', locale: 'en-US' })).toBe('KWD 1.234');
+    expect(format(1.234, { currency: 'KWD', locale: 'en-US' })).toBe('KWD 1.234');
   });
 
   it('treats input as minor units when minor=true', () => {
     expect(format(1050, { minor: true })).toBe('$10.50');
-    expect(format(1500, { minor: true, code: 'JPY' })).toBe('¥1,500');
+    expect(format(1500, { minor: true, currency: 'JPY' })).toBe('¥1,500');
   });
 
   it('omits decimals when decimals=false', () => {
@@ -119,7 +119,7 @@ describe('format', () => {
   });
 
   it('honors locale override', () => {
-    expect(format(1234.5, { code: 'EUR', locale: 'de-DE' })).toBe('1.234,50 €');
+    expect(format(1234.5, { currency: 'EUR', locale: 'de-DE' })).toBe('1.234,50 €');
   });
 
   it('coerces non-numeric input to 0', () => {
