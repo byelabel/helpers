@@ -27,8 +27,12 @@ describe('format', () => {
     expect(format(1234567.89)).toBe('1,234,567.89');
   });
 
-  it('passes Intl options through', () => {
-    expect(format(1.5, undefined, { minimumFractionDigits: 3 })).toBe('1.500');
+  it('honors exact decimals', () => {
+    expect(format(1.5, { decimals: 3 })).toBe('1.500');
+  });
+
+  it('disables grouping when grouping=false', () => {
+    expect(format(1234567.89, { grouping: false })).toBe('1234567.89');
   });
 
   it('coerces non-numeric input to 0', () => {
@@ -37,7 +41,7 @@ describe('format', () => {
 
   it('honors locale override', () => {
     // tr-TR uses '.' as thousands separator and ',' as decimal
-    expect(format(1234.5, 'tr-TR', undefined)).toBe('1.234,5');
+    expect(format(1234.5, { locale: 'tr-TR' })).toBe('1.234,5');
   });
 });
 
@@ -47,7 +51,19 @@ describe('currency', () => {
   });
 
   it('supports other currency codes', () => {
-    expect(currency(10, 'EUR', 'en-US')).toBe('€10.00');
+    expect(currency(10, 'EUR', { locale: 'en-US' })).toBe('€10.00');
+  });
+
+  it('omits decimals when decimals=false', () => {
+    expect(currency(10.5, 'USD', { decimals: false })).toBe('$11');
+  });
+
+  it('omits symbol when symbol=false', () => {
+    expect(currency(10.5, 'USD', { symbol: false })).toBe('10.50');
+  });
+
+  it('honors locale override', () => {
+    expect(currency(1234.5, 'EUR', { locale: 'de-DE' })).toBe('1.234,50 €');
   });
 
   it('coerces non-numeric input to 0', () => {
@@ -61,19 +77,23 @@ describe('currencySymbol', () => {
   });
 
   it('returns the symbol for a given code', () => {
-    expect(currencySymbol('EUR', 'en-US')).toBe('€');
-    expect(currencySymbol('GBP', 'en-US')).toBe('£');
+    expect(currencySymbol('EUR', { locale: 'en-US' })).toBe('€');
+    expect(currencySymbol('GBP', { locale: 'en-US' })).toBe('£');
   });
 });
 
 describe('percent', () => {
   it('treats the input as a percentage value', () => {
     // 25 / 100 = 0.25 → "25%"
-    expect(percent(25, 'en-US')).toBe('25%');
+    expect(percent(25, { locale: 'en-US' })).toBe('25%');
+  });
+
+  it('honors exact decimals', () => {
+    expect(percent(25.5, { locale: 'en-US', decimals: 2 })).toBe('25.50%');
   });
 
   it('coerces non-numeric input to 0', () => {
-    expect(percent('abc' as any, 'en-US')).toBe('0%');
+    expect(percent('abc' as any, { locale: 'en-US' })).toBe('0%');
   });
 });
 
@@ -81,6 +101,14 @@ describe('short', () => {
   it('renders compact notation', () => {
     expect(short(1500)).toBe('1.5K');
     expect(short(2_500_000)).toBe('2.5M');
+  });
+
+  it('renders long compact notation when long=true', () => {
+    expect(short(1500, { long: true })).toBe('1.5 thousand');
+  });
+
+  it('honors decimals', () => {
+    expect(short(1234, { decimals: 2 })).toBe('1.23K');
   });
 
   it('coerces non-numeric input to 0', () => {

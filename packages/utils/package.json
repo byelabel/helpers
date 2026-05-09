@@ -109,7 +109,7 @@
     "dotenv": "^17.4.2",
     "eventemitter2": "^6.4.9",
     "glob": "^13.0.6",
-    "joi": "^18.1.2",
+    "joi": "^18.2.1",
     "redis": "^5.12.1",
     "sequelize": "^6.37.8",
     "sequelize-typescript": "^2.1.6",

@@ -38,25 +38,24 @@ export function toMajor(minor: number | string, code = 'USD'): number {
 }
 
 export interface MoneyFormatOptions {
-  code?: string;
   locale?: string;
   minor?: boolean;
   decimals?: boolean;
   symbol?: boolean;
 }
 
-export function format(amount: number | string, options: MoneyFormatOptions = {}): string {
-  const { code = 'USD', locale, minor = false, decimals = true, symbol = true } = options;
+export function format(amount: number | string, currency = 'USD', options: MoneyFormatOptions = {}): string {
+  const { locale, minor = false, decimals = true, symbol = true } = options;
 
   if (!isNumeric(amount)) amount = 0;
 
-  const value = minor ? toMajor(amount, code) : Number(amount);
-  const currencyDecimals = getCurrencyDecimals(code);
+  const value = minor ? toMajor(amount, currency) : Number(amount);
+  const currencyDecimals = getCurrencyDecimals(currency);
   const fractionDigits = decimals ? currencyDecimals : 0;
 
   return new Intl.NumberFormat(locale || 'en-US', {
     style: symbol ? 'currency' : 'decimal',
-    currency: code,
+    currency,
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits
   }).format(value);

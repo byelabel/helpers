@@ -153,33 +153,49 @@ showMessages([
 
 ### `number`
 
-Number formatting helpers built on `Intl.NumberFormat`. Exposed flat (`toNumber`, `formatBytes`, `getRandom`, ...) and namespaced (`number.format`, `number.currency`, `number.short`, `number.percent`) — the namespace form is recommended for the generic names.
+Number formatting helpers built on `Intl.NumberFormat`. Exposed flat (`toNumber`, `formatBytes`, `getRandom`, ...) and namespaced (`number.format`, `number.currency`, `number.short`, `number.percent`) — the namespace form is recommended for the generic names. The formatter functions take a single human-readable options object (no raw `Intl.NumberFormatOptions` pass-through).
 
 ```ts
 import { number, toNumber, formatBytes, getRandom } from '@byelabel/utils';
 // or: import * as number from '@byelabel/utils/number';
 
-toNumber('1.236', 2);                   // 1.24 (rounded to 2 dp)
-toNumber('abc');                        // 0 (non-numeric → 0)
+toNumber('1.236', 2);                                      // 1.24 (rounded to 2 dp)
+toNumber('abc');                                           // 0 (non-numeric → 0)
 
-number.format(1234567.89);              // '1,234,567.89'
-number.format(1234.5, 'tr-TR'); // '1.234,5'
-number.format(1.5, 'en-US', { minimumFractionDigits: 3 }); // '1.500'
+number.format(1234567.89);                                 // '1,234,567.89'
+number.format(1234.5, { locale: 'tr-TR' });                // '1.234,5'
+number.format(1.5, { decimals: 3 });                       // '1.500'
+number.format(1234567.89, { grouping: false });            // '1234567.89'
 
-number.currency(1234.5);                // '$1,234.50'
-number.currency(10, 'EUR', 'en-US');    // '€10.00'
-number.currencySymbol('GBP', 'en-US');  // '£'
+number.currency(1234.5);                                   // '$1,234.50'
+number.currency(10, 'EUR', { locale: 'en-US' });           // '€10.00'
+number.currency(10.5, 'USD', { decimals: false });         // '$11'
+number.currency(10.5, 'USD', { symbol: false });           // '10.50'
+number.currencySymbol('GBP', { locale: 'en-US' });         // '£'
 
-number.percent(25, 'en-US');            // '25%'  (input is already a percentage)
+number.percent(25, { locale: 'en-US' });                   // '25%'   (input is already a percentage)
+number.percent(25.5, { decimals: 2 });                     // '25.50%'
 
-number.short(1500);                     // '1.5K'
-number.short(2_500_000);                // '2.5M'
+number.short(1500);                                        // '1.5K'
+number.short(2_500_000);                                   // '2.5M'
+number.short(1500, { long: true });                        // '1.5 thousand'
+number.short(1234, { decimals: 2 });                       // '1.23K'
 
-getRandom(1, 10);                       // integer in [1, 10] inclusive
+getRandom(1, 10);                                          // integer in [1, 10] inclusive
 
-formatBytes(2048);                      // '2.0 KB'
-formatBytes(5 * 1024 * 1024);           // '5.0 MB'
+formatBytes(2048);                                         // '2.0 KB'
+formatBytes(5 * 1024 * 1024);                              // '5.0 MB'
 ```
+
+Options accepted by each formatter:
+
+| Function | Options |
+| --- | --- |
+| `format(n, options?)` | `locale`, `decimals` (exact fraction digits), `grouping` (default `true`) |
+| `currency(n, code?, options?)` | `locale`, `decimals` (default `true` — currency-natural digits; `false` forces 0), `symbol` (default `true`) |
+| `currencySymbol(code?, options?)` | `locale` |
+| `percent(n, options?)` | `locale`, `decimals` (exact fraction digits) |
+| `short(n, options?)` | `locale`, `decimals` (max fraction digits, default `1`), `long` (long compact display, default `false`) |
 
 ### `money`
 
