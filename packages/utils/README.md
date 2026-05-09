@@ -206,9 +206,9 @@ import { money } from '@byelabel/utils';
 // or: import * as money from '@byelabel/utils/money';
 
 money.format(1234.5);                                  // '$1,234.50'
-money.format(1500, { code: 'JPY' });                   // '¥1,500'   (zero-decimal)
-money.format(1.234, { code: 'KWD', locale: 'en-US' }); // 'KWD 1.234' (three-decimal)
-money.format(1234.5, { code: 'EUR', locale: 'de-DE' });// '1.234,50 €'
+money.format(1500, { currency: 'JPY' });                   // '¥1,500'   (zero-decimal)
+money.format(1.234, { currency: 'KWD', locale: 'en-US' }); // 'KWD 1.234' (three-decimal)
+money.format(1234.5, { currency: 'EUR', locale: 'de-DE' });// '1.234,50 €'
 
 money.format(1050, { minor: true });                   // '$10.50'   (1050 cents → $10.50)
 money.format(10.5, { decimals: false });               // '$11'      (suppress fraction digits)
@@ -233,7 +233,7 @@ money.isZeroDecimalCurrency('USD');                    // false
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| `code` | `'USD'` | ISO 4217 currency code |
+| `currency` | `'USD'` | ISO 4217 currency code |
 | `locale` | `'en-US'` | BCP 47 locale tag |
 | `minor` | `false` | Treat input as minor units (cents) and convert before formatting |
 | `decimals` | `true` | When `false`, fraction digits are forced to 0 |
