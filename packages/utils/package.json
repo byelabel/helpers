@@ -50,6 +50,10 @@
       "types": "./build/utils/log.d.ts",
       "default": "./build/utils/log.js"
     },
+    "./money": {
+      "types": "./build/utils/money.d.ts",
+      "default": "./build/utils/money.js"
+    },
     "./number": {
       "types": "./build/utils/number.d.ts",
       "default": "./build/utils/number.js"
