@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Signature changes (37ee04f)
 
+- money.format renamed to money.display (0fd92ea)
+- README doc updates (456ea90)
+- Signature changes (07b5b78)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
