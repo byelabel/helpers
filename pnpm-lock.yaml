@@ -54,8 +54,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       amqplib:
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^2.0.1
+        version: 2.0.1
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -488,8 +488,8 @@ packages:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
     engines: {node: '>= 0.6'}
 
-  amqplib@1.0.3:
-    resolution: {integrity: sha512-nsrXa59tvX4HPjPPW8JJGuBb/Db0MOq3DOhGdSbIY7bTsQDMV2fmF9c3i74g/8Gt9+QWyrxfEPppOOoV9lK1uQ==}
+  amqplib@2.0.1:
+    resolution: {integrity: sha512-a3P2MgfCf9nzVis12VxWEn0dS6hcqve7dlEAhXDtIWR27BlhtMkILOc+H9aeHjDi6i6r94dYKc2Kx2OFe3avvg==}
     engines: {node: '>=18'}
 
   ansi-regex@5.0.1:
@@ -531,9 +531,6 @@ packages:
   brace-expansion@5.0.5:
     resolution: {integrity: sha512-VZznLgtwhn+Mact9tfiwx64fA9erHH/MCXEUfB/0bX/6Fz6ny5EGTXYltMocqg4xFAQZtnO3DHWWXi8RiuN7cQ==}
     engines: {node: 18 || 20 || >=22}
-
-  buffer-more-ints@1.0.0:
-    resolution: {integrity: sha512-EMetuGFz5SLsT0QTnXzINh4Ksr+oo4i+UGTXEshiGCQWnsgSs7ZhJ8fzlwQ+OzEMs0MpDAMr1hxnblp5a4vcHg==}
 
   bytes@3.1.2:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
@@ -1730,9 +1727,7 @@ snapshots:
       mime-types: 3.0.2
       negotiator: 1.0.0
 
-  amqplib@1.0.3:
-    dependencies:
-      buffer-more-ints: 1.0.0
+  amqplib@2.0.1: {}
 
   ansi-regex@5.0.1: {}
 
@@ -1776,8 +1771,6 @@ snapshots:
   brace-expansion@5.0.5:
     dependencies:
       balanced-match: 4.0.4
-
-  buffer-more-ints@1.0.0: {}
 
   bytes@3.1.2: {}
 
