@@ -134,6 +134,10 @@ function createURI(opts: IRabbitOptions): string {
     url.push(`/${opts.vhost}`);
   }
 
+  if (isNumber(opts.heartbeat)) {
+    url.push(`?heartbeat=${opts.heartbeat}`);
+  }
+
   return url.join('');
 }
 
@@ -169,7 +173,6 @@ export function connect(options?: IRabbitOptions): Promise<{
       try {
         if (!connection[processId]) {
           const conn = await amqp.connect(createURI(config), {
-            heartbeat: config.heartbeat,
             keepAlive: config.keepAlive,
             keepAliveDelay: config.keepAliveDelay,
             clientProperties: {
