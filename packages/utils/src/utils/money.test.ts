@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { format, getCurrencyDecimals, isZeroDecimalCurrency, toMajor, toMinor } from './money';
+import { display, getCurrencyDecimals, isZeroDecimalCurrency, toMajor, toMinor } from './money';
 
 describe('getCurrencyDecimals', () => {
   it('returns 2 for USD by default', () => {
@@ -88,41 +88,41 @@ describe('toMajor', () => {
   });
 });
 
-describe('format', () => {
+describe('display', () => {
   it('formats USD with currency symbol by default', () => {
-    expect(format(1234.5)).toBe('$1,234.50');
+    expect(display(1234.5)).toBe('$1,234.50');
   });
 
   it('formats zero-decimal currencies without decimals', () => {
-    expect(format(1500, { currency: 'JPY' })).toBe('¥1,500');
+    expect(display(1500, { currency: 'JPY' })).toBe('¥1,500');
   });
 
   it('formats three-decimal currencies with three fraction digits', () => {
-    expect(format(1.234, { currency: 'KWD', locale: 'en-US' })).toBe('KWD 1.234');
+    expect(display(1.234, { currency: 'KWD', locale: 'en-US' })).toBe('KWD 1.234');
   });
 
   it('treats input as minor units when minor=true', () => {
-    expect(format(1050, { minor: true })).toBe('$10.50');
-    expect(format(1500, { minor: true, currency: 'JPY' })).toBe('¥1,500');
+    expect(display(1050, { minor: true })).toBe('$10.50');
+    expect(display(1500, { minor: true, currency: 'JPY' })).toBe('¥1,500');
   });
 
   it('omits decimals when decimals=false', () => {
-    expect(format(10.5, { decimals: false })).toBe('$11');
+    expect(display(10.5, { decimals: false })).toBe('$11');
   });
 
   it('omits symbol when symbol=false', () => {
-    expect(format(10.5, { symbol: false })).toBe('10.50');
+    expect(display(10.5, { symbol: false })).toBe('10.50');
   });
 
   it('omits both when symbol=false and decimals=false', () => {
-    expect(format(10.5, { symbol: false, decimals: false })).toBe('11');
+    expect(display(10.5, { symbol: false, decimals: false })).toBe('11');
   });
 
   it('honors locale override', () => {
-    expect(format(1234.5, { currency: 'EUR', locale: 'de-DE' })).toBe('1.234,50 €');
+    expect(display(1234.5, { currency: 'EUR', locale: 'de-DE' })).toBe('1.234,50 €');
   });
 
   it('coerces non-numeric input to 0', () => {
-    expect(format('abc' as any)).toBe('$0.00');
+    expect(display('abc' as any)).toBe('$0.00');
   });
 });

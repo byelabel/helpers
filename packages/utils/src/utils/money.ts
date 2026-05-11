@@ -37,7 +37,7 @@ export function toMajor(minor: number | string, code = 'USD'): number {
   return Number((Number(minor) / factor).toFixed(decimals));
 }
 
-export interface MoneyFormatOptions {
+export interface MoneyDisplayOptions {
   currency?: string;
   locale?: string;
   minor?: boolean;
@@ -45,7 +45,7 @@ export interface MoneyFormatOptions {
   symbol?: boolean;
 }
 
-export function format(amount: number | string, options: MoneyFormatOptions = {}): string {
+export function display(amount: number | string, options: MoneyDisplayOptions = {}): string {
   const { currency = 'USD', locale, minor = false, decimals = true, symbol = true } = options;
 
   if (!isNumeric(amount)) amount = 0;

@@ -7,6 +7,7 @@ export * from './utils/error';
 export * from './utils/events';
 export * from './utils/jobs';
 export * from './utils/log';
+export * from './utils/money';
 export * from './utils/number';
 export * from './utils/output';
 export * from './utils/validator';

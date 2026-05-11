@@ -199,37 +199,37 @@ Options accepted by each formatter:
 
 ### `money`
 
-Currency-aware money formatting with built-in zero/three-decimal currency tables (e.g. JPY/KRW have 0, KWD/BHD have 3) and minor-unit (cents) conversion. Exposed as a namespace to avoid colliding with `number.format`.
+Currency-aware money formatting with built-in zero/three-decimal currency tables (e.g. JPY/KRW have 0, KWD/BHD have 3) and minor-unit (cents) conversion. Exposed flat (`display`, `toMinor`, `toMajor`, ...) and namespaced (`money.display`, ...) — the formatter is `display` instead of `format` to avoid colliding with `number.format` at the root.
 
 ```ts
-import { money } from '@byelabel/utils';
-// or: import * as money from '@byelabel/utils/money';
+import { display, toMajor, toMinor } from '@byelabel/utils/money';
+// or: import { money } from '@byelabel/utils';
 
-money.format(1234.5);                                  // '$1,234.50'
-money.format(1500, { currency: 'JPY' });                   // '¥1,500'   (zero-decimal)
-money.format(1.234, { currency: 'KWD', locale: 'en-US' }); // 'KWD 1.234' (three-decimal)
-money.format(1234.5, { currency: 'EUR', locale: 'de-DE' });// '1.234,50 €'
+display(1234.5);                                  // '$1,234.50'
+display(1500, { currency: 'JPY' });                   // '¥1,500'   (zero-decimal)
+display(1.234, { currency: 'KWD', locale: 'en-US' }); // 'KWD 1.234' (three-decimal)
+display(1234.5, { currency: 'EUR', locale: 'de-DE' });// '1.234,50 €'
 
-money.format(1050, { minor: true });                   // '$10.50'   (1050 cents → $10.50)
-money.format(10.5, { decimals: false });               // '$11'      (suppress fraction digits)
-money.format(10.5, { symbol: false });                 // '10.50'    (no currency symbol)
+display(1050, { minor: true });                   // '$10.50'   (1050 cents → $10.50)
+display(10.5, { decimals: false });               // '$11'      (suppress fraction digits)
+display(10.5, { symbol: false });                 // '10.50'    (no currency symbol)
 
-money.toMinor(10.5);                                   // 1050   (USD → cents)
-money.toMinor(1.234, 'KWD');                           // 1234   (3 decimals)
-money.toMinor(1500, 'JPY');                            // 1500   (0 decimals, no scale)
+toMinor(10.5);                                    // 1050   (USD → cents)
+toMinor(1.234, 'KWD');                            // 1234   (3 decimals)
+toMinor(1500, 'JPY');                             // 1500   (0 decimals, no scale)
 
-money.toMajor(1050);                                   // 10.5
-money.toMajor(1234, 'KWD');                            // 1.234
+toMajor(1050);                                    // 10.5
+toMajor(1234, 'KWD');                             // 1.234
 
-money.getCurrencyDecimals('USD');                      // 2
-money.getCurrencyDecimals('JPY');                      // 0
-money.getCurrencyDecimals('KWD');                      // 3
+money.getCurrencyDecimals('USD');                 // 2
+money.getCurrencyDecimals('JPY');                 // 0
+money.getCurrencyDecimals('KWD');                 // 3
 
-money.isZeroDecimalCurrency('JPY');                    // true
-money.isZeroDecimalCurrency('USD');                    // false
+money.isZeroDecimalCurrency('JPY');               // true
+money.isZeroDecimalCurrency('USD');               // false
 ```
 
-`format` accepts `MoneyFormatOptions`:
+`display` accepts `MoneyDisplayOptions`:
 
 | Option | Default | Notes |
 | --- | --- | --- |
