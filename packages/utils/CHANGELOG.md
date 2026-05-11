@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README doc updates (456ea90)
 - Signature changes (07b5b78)
 
+- package updates: amqplib to 2.0.1 version (658e94e)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
