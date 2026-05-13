@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - removed unnecessary package (sequelize-typescript) from dependencies (758ae42)
 
+- sequelize-typescript undeleted and update revoked (16ca38c)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
