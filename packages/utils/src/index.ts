@@ -1,4 +1,4 @@
-export * from './utils/config';
+export { loadEnv } from './utils/config';
 export * from './utils/crypt';
 export * from './utils/data';
 export * from './utils/dto';

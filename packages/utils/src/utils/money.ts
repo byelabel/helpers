@@ -8,7 +8,7 @@ const ZERO_DECIMAL_CURRENCIES = new Set([
 const THREE_DECIMAL_CURRENCIES = new Set(['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND']);
 
 export function getCurrencyDecimals(code = 'USD'): number {
-  const upper = code.toUpperCase();
+  const upper = (code || 'USD').toUpperCase();
 
   if (ZERO_DECIMAL_CURRENCIES.has(upper)) return 0;
   if (THREE_DECIMAL_CURRENCIES.has(upper)) return 3;
