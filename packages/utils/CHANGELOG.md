@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - package updates: amqplib to 2.0.1 version (45bc86d)
 
+- loadEnv exported directly (* import removed) fix: undefined variable check added (e2f81bf)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
