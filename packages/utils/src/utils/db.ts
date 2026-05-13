@@ -5,7 +5,8 @@ import cluster from 'node:cluster';
 import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { createContext, Script } from 'node:vm';
-import { cast, col, Dialect, fn, json, literal, Op, Options, QueryTypes, Sequelize, where } from 'sequelize';
+import { cast, col, Dialect, fn, json, literal, Op, QueryTypes, where } from 'sequelize';
+import { Sequelize, SequelizeOptions } from 'sequelize-typescript';
 import { IInfiniteList, IList, paging } from './data';
 import { throwAppError } from './error';
 import { logInfo, showMessages } from './log';
@@ -138,7 +139,7 @@ async function sequelizeConnection(dbName?: string, models?: string[], options?:
     ...(isNonEmptyString(dbName) ? { database: dbName } : {}),
     ...(isNonEmptyArray(models) ? { models } : {}),
     logging: opts.debug ? console.log : null
-  } as Options);
+  } as SequelizeOptions);
 }
 
 async function create(dbName?: string, options?: IDBOptions) {
