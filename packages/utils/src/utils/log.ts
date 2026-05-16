@@ -8,6 +8,12 @@ import { isEmail, isNonEmptyArray } from './validator';
 
 export type IErrorType = 'error' | 'warning' | 'info' | 'request' | 'webservice' | 'event';
 
+function timestamp(): string {
+  const now = new Date();
+  const pad = (n: number, width: number = 2) => String(n).padStart(width, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${pad(now.getMilliseconds(), 3)}`;
+}
+
 export function writeToFile(data: string, type: IErrorType = 'error'): {
   path: string,
   name: string,
@@ -41,7 +47,7 @@ export function logInfo(message: string, show: boolean = false): Promise<string>
     writeToFile(message, 'info');
 
     if ((process.env.DEBUG === 'true') || show) {
-      console.log(message);
+      console.log(`${timestamp()} - ${message}`);
     }
 
     resolve(message);
@@ -53,7 +59,7 @@ export function logWarning(message: string, show: boolean = false): Promise<stri
     writeToFile(message, 'warning');
 
     if ((process.env.DEBUG === 'true') || show) {
-      console.log(message);
+      console.log(`${timestamp()} - ${message}`);
     }
 
     resolve(message);
@@ -72,7 +78,7 @@ export function logError(name: string, error: Error, args?: any, show: boolean =
       writeToFile(errorString, 'error');
 
       if ((process.env.DEBUG === 'true') || show) {
-        console.log(errorString);
+        console.log(`${timestamp()} - ${errorString}`);
       }
 
       return resolve(`App Error: ${errorString}`);
@@ -129,7 +135,7 @@ export function logError(name: string, error: Error, args?: any, show: boolean =
       }
     } finally {
       if ((process.env.DEBUG === 'true') || show) {
-        console.log(errorString);
+        console.log(`${timestamp()} - ${errorString}`);
       }
 
       resolve(errorString);
