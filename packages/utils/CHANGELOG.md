@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - date time added to logs on console (f625f0d)
 
+- system logging added to db (removed console.log) (e615645)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
