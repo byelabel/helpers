@@ -1,4 +1,3 @@
-import { logInfo } from './log';
 import { isFunction, isNonEmptyString, isNonNullObject } from './validator';
 
 type EnvVars = Record<string, string | undefined>;
@@ -45,7 +44,7 @@ export function loadEnv(envFile: string = '.env', options: LoadEnvOptions = {}) 
         parsedVars = { ...parsedVars, ...(env.parsed as EnvVars) };
 
         if (cluster.isPrimary) {
-          logInfo(`Environment variables loaded: "${envFile}"`, true).catch(() => {});
+          console.info(`Environment variables loaded: "${envFile}"`);
         }
       }
     }

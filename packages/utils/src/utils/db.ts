@@ -172,7 +172,7 @@ async function create(dbName?: string, options?: IDBOptions) {
     if (!isNonEmptyArray(rows)) {
       await sequelize.query(`CREATE DATABASE "${dbName}" ENCODING 'UTF-8' LC_COLLATE 'tr_TR.UTF-8' LC_CTYPE 'tr_TR.UTF-8' TEMPLATE template0`);
 
-      logInfo(`Database created: ${dbName}`, true).catch(() => {});
+      console.info(`Database created: ${dbName}`);
     }
   } catch (e) {
   }
@@ -221,7 +221,7 @@ export async function connect(options?: IDBOptions): Promise<Sequelize> {
               force: opts.forceSync
             });
 
-            logInfo(`Database Sync: ${opts.forceSync ? 'YES' : 'NO'}`, true).catch(() => {});
+            console.info(`Database Sync: ${opts.forceSync ? 'YES' : 'NO'}`);
           }
         }
       }
