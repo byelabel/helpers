@@ -138,9 +138,7 @@ async function sequelizeConnection(dbName?: string, models?: string[], options?:
     ...params,
     ...(isNonEmptyString(dbName) ? { database: dbName } : {}),
     ...(isNonEmptyArray(models) ? { models } : {}),
-    ...(opts.debug ? {
-      logging: sql => logInfo(sql, true)
-    } : {})
+    logging: opts.debug ? sql => logInfo(sql, true).catch(() => {}) : null
   } as SequelizeOptions);
 }
 
@@ -744,7 +742,7 @@ export function getList<T>(params: IGetListParams): Promise<IList<T>> {
         raw: true,
         replacements,
         ...(debug ? {
-          logging: sql => logInfo(sql, true)
+          logging: sql => logInfo(sql, true).catch(() => {})
         } : {})
       });
 
@@ -756,7 +754,7 @@ export function getList<T>(params: IGetListParams): Promise<IList<T>> {
           raw: true,
           replacements,
           ...(debug ? {
-            logging: sql => logInfo(sql, true)
+            logging: sql => logInfo(sql, true).catch(() => {})
           } : {})
         });
 
@@ -870,7 +868,7 @@ export function getInfiniteList<T>(params: IGetInfiniteListParams): Promise<IInf
         raw: true,
         replacements,
         ...(debug ? {
-          logging: sql => logInfo(sql, true)
+          logging: sql => logInfo(sql, true).catch(() => {})
         } : {})
       });
 
@@ -882,7 +880,7 @@ export function getInfiniteList<T>(params: IGetInfiniteListParams): Promise<IInf
           raw: true,
           replacements,
           ...(debug ? {
-            logging: sql => logInfo(sql, true)
+            logging: sql => logInfo(sql, true).catch(() => {})
           } : {})
         });
 
