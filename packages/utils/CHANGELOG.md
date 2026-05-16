@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - system logging added to db (removed console.log) (e615645)
 
+- info messages change to console.info (fffb205)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
