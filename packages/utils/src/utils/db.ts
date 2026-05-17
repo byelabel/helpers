@@ -179,7 +179,7 @@ async function create(dbName?: string, options?: IDBOptions) {
 export async function getModels(path: string) {
   const models = [];
 
-  for await (const model of sync(join(path, '..', '**', '*.model.js'), { windowsPathsNoEscape: true }).values()) {
+  for await (const model of sync(join(path, '**', '*.model.js'), { windowsPathsNoEscape: true }).values()) {
     models.push(model);
   }
 
