@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - logging fix (c8627eb)
 
+- fix for searching only given path and subpaths (794847f)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
