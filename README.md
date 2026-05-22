@@ -337,7 +337,7 @@ await db.disconnect();
 
 ### `@byelabel/utils/rabbit`
 
-RabbitMQ client with auto-reconnect (bounded retry-with-backoff), AMQP heartbeats, message streaming for payloads larger than `messageMaxSize` (default 5 MB), and request/response over reply queues.
+RabbitMQ client with auto-reconnect (bounded retry-with-backoff), AMQP heartbeats, message streaming for payloads larger than `messageMaxSize` (default 5 MB), request/response over reply queues, and open-ended `Readable` replies via `sendMessageForReplyStream` for piping large payloads to clients without buffering.
 
 ```ts
 import { rabbit } from '@byelabel/utils';
@@ -354,9 +354,23 @@ await rabbit.sendMessage('log.event', { action: 'login', user_id: id });
 // request → reply
 const result = await rabbit.sendMessageForReply('account.find', { id });
 
+// request → streaming reply (Readable arrives as soon as the first chunk lands)
+const pdf = await rabbit.sendMessageForReplyStream('file.download', { id });
+pdf.pipe(res);
+
 // listen
 await rabbit.receiveMessage('account', async (params) => {
   return { success: true, payload: { /* ... */ } };
+});
+
+// listen + reply with a Readable (chunks are sent as they flow)
+await rabbit.receiveMessage('file', async (params) => {
+  return { stream: fs.createReadStream(`/storage/${params.id}.pdf`) };
+});
+
+// via the eventEmitter (the reply callback's 4th arg is the stream)
+eventEmitter.on('file.download', (params, reply) => {
+  reply(null, null, undefined, fs.createReadStream(`/storage/${params.id}.pdf`));
 });
 
 // pub/sub

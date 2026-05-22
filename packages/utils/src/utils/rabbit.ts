@@ -1,6 +1,7 @@
 import amqp from 'amqplib';
 import joi from 'joi';
 import process from 'node:process';
+import { Readable } from 'node:stream';
 import { v4 } from 'uuid';
 import { AppError, throwAppError } from './error';
 import eventEmitter from './events';
@@ -11,7 +12,10 @@ type IStreamHeader = {
   id: string,
   queue: string,
   index: number,
-  length: number
+  length: number,
+  streaming?: boolean,
+  final?: boolean,
+  error?: string
 };
 
 type IStream = {
@@ -320,6 +324,128 @@ function receiveStream(message: amqp.Message): Promise<Buffer> {
   });
 }
 
+function sendReadableStream(replyQueue: string, source: Readable, properties: amqp.Options.Publish, options?: ISendMessageOptions): Promise<void> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const { channel } = await connect();
+      const max = config.messageMaxSize as number;
+
+      const q = await channel.assertQueue('', {
+        durable: true,
+        autoDelete: true,
+        expires: (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 30)) * 1000
+      });
+
+      const id = v4();
+
+      let index = 0;
+      let carry: Buffer = Buffer.alloc(0);
+
+      const flush = (buf: Buffer, final: boolean) => {
+        const target = index === 0 ? replyQueue : q.queue;
+        const headers: IStreamHeader = {
+          id,
+          queue: q.queue,
+          index,
+          length: 0,
+          streaming: true,
+          final
+        };
+
+        channel.sendToQueue(target, buf, {
+          ...(index === 0 ? properties : { correlationId: id }),
+          headers
+        });
+
+        index++;
+      };
+
+      try {
+        for await (const chunk of source) {
+          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          carry = Buffer.concat([carry, buf]);
+
+          while (carry.byteLength >= max) {
+            flush(carry.subarray(0, max), false);
+            carry = carry.subarray(max);
+          }
+        }
+
+        // final chunk (maybe empty) marks end-of-stream
+        flush(carry, true);
+
+        await channel.waitForConfirms().catch(() => {});
+      } catch (e) {
+        const headers: IStreamHeader = {
+          id,
+          queue: q.queue,
+          index,
+          length: 0,
+          streaming: true,
+          final: true,
+          error: (e as Error).message
+        };
+
+        channel.sendToQueue(index === 0 ? replyQueue : q.queue, Buffer.alloc(0), {
+          ...(index === 0 ? properties : { correlationId: id }),
+          headers
+        });
+
+        await channel.waitForConfirms().catch(() => {});
+      }
+
+      resolve();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+function receiveStreamAsReadable(firstMessage: amqp.Message, ch: amqp.ConfirmChannel): Readable {
+  const headers = firstMessage.properties.headers as IStreamHeader;
+  const readable = new Readable({ read() {} });
+
+  let consumerTag: string | null = null;
+
+  const cleanup = async () => {
+    if (consumerTag) await ch.cancel(consumerTag).catch(() => {});
+    await ch.deleteQueue(headers.queue).catch(() => {});
+  };
+
+  if (firstMessage.content.byteLength) readable.push(firstMessage.content);
+
+  if (headers.final) {
+    if (headers.error) readable.destroy(new Error(headers.error));
+    else readable.push(null);
+    cleanup().catch(() => {});
+    return readable;
+  }
+
+  ch.consume(headers.queue, async (m) => {
+    if (!m) return;
+
+    const h = m.properties.headers as IStreamHeader | undefined;
+
+    if (!h || m.properties.correlationId !== headers.id) return;
+
+    ch.ack(m);
+
+    if (m.content.byteLength) readable.push(m.content);
+
+    if (h.final) {
+      if (h.error) readable.destroy(new Error(h.error));
+      else readable.push(null);
+      await cleanup();
+    }
+  }, { noAck: false }).then(({ consumerTag: tag }) => {
+    consumerTag = tag;
+  }).catch((e) => {
+    readable.destroy(e as Error);
+  });
+
+  return readable;
+}
+
 function sendStream(queue: string, message: Buffer, properties?: amqp.Options.Publish, options?: ISendMessageOptions): Promise<void> {
   return new Promise(async (resolve, reject) => {
     try {
@@ -382,12 +508,24 @@ export function receiveMessage(queue: string, callback?: Function): Promise<void
           }
 
           if (callback && isFunction(callback)) {
-            const { events, ...result } = await callback(params);
+            const { events, stream, ...result } = await callback(params);
 
             if (message.properties?.replyTo) {
+              const correlationId = message.properties?.correlationId;
+
+              // streaming reply: pipe a Readable straight into the chunk protocol
+              if (stream && isFunction((stream as Readable).pipe)) {
+                await sendReadableStream(message.properties.replyTo, stream as Readable, {
+                  replyTo: message.properties.replyTo,
+                  correlationId,
+                  persistent: true
+                });
+
+                return;
+              }
+
               // return message as buffer
               const returnMessage = Buffer.from(JSON.stringify({ data: result }));
-              const correlationId = message.properties?.correlationId;
               const onUndelivered = isFunction(events?.onUndelivered) ? events.onUndelivered : null;
 
               // Track this reply so the channel-level 'return' listener can flag it as undeliverable.
@@ -567,6 +705,95 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
   });
 }
 
+export function sendMessageForReplyStream(name: string, data?: any, options?: ISendMessageOptions): Promise<Readable> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const { channel } = await connect();
+
+      const expires = (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 60)) * 1000;
+
+      const q = await channel.assertQueue('', {
+        durable: false,
+        autoDelete: true,
+        expires
+      });
+
+      const correlationId = v4();
+
+      let settled = false;
+      let consumerTag: string | null = null;
+
+      const timer = setTimeout(async () => {
+        if (settled) return;
+
+        settled = true;
+
+        if (consumerTag) await channel.cancel(consumerTag).catch(() => {});
+
+        await channel.deleteQueue(q.queue).catch(() => {});
+
+        reject(new AppError(`No response from service (${name})`, 'NO_RESPONSE_FROM_SERVICE', { name }));
+      }, expires);
+
+      const consume = await channel.consume(q.queue, async (message) => {
+        if (!message || message.properties?.correlationId !== correlationId) return;
+
+        if (settled) return;
+
+        settled = true;
+        clearTimeout(timer);
+        channel.ack(message);
+
+        // only the first chunk lands here; subsequent chunks (if any) flow through a producer-owned queue
+        if (consumerTag) await channel.cancel(consumerTag).catch(() => {});
+
+        await channel.deleteQueue(q.queue).catch(() => {});
+
+        const headers = message.properties?.headers as IStreamHeader | undefined;
+
+        if (headers?.streaming) {
+          // open-ended streaming reply — chunks arrive on headers.queue as they're produced
+          resolve(receiveStreamAsReadable(message, channel));
+        } else if (headers && isNumber(headers.length) && headers.length > 0) {
+          // legacy buffered multi-chunk reply — assemble then wrap as Readable
+          const buf = await receiveStream(message);
+          resolve(Readable.from(buf));
+        } else {
+          // single small reply
+          resolve(Readable.from(message.content));
+        }
+      }, { noAck: false });
+
+      consumerTag = consume.consumerTag;
+
+      let queue = name, pattern: string | null = null;
+
+      if (queue.lastIndexOf('.') > -1) {
+        pattern = queue.substring(queue.indexOf('.') + 1);
+        queue = queue.substring(0, queue.indexOf('.'));
+      }
+
+      queue = `${config.namespace}${queue}`;
+
+      const message = Buffer.from(JSON.stringify({ pattern, data }));
+
+      if (message.byteLength > (config.messageMaxSize as number)) {
+        await sendStream(queue, message, {
+          correlationId,
+          replyTo: q.queue
+        }, options);
+      } else {
+        channel.sendToQueue(queue, message, {
+          correlationId,
+          replyTo: q.queue
+        });
+      }
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 const publishedStreams: { [key: string]: Array<{ index: number, content: Buffer }> } = {};
 
 export function receivePublishedMessage(exchange: string, key: string, callback?: Function): Promise<void> {
@@ -702,8 +929,8 @@ export function listen(showInfo: boolean = false): Promise<void> {
           }
 
           return new Promise((resolve) => {
-            eventEmitter.emit(name, params.data, (error: AppError, payload: any, events?: Record<string, Function>) => {
-              resolve({ error, payload, events });
+            eventEmitter.emit(name, params.data, (error: AppError, payload: any, events?: Record<string, Function>, stream?: Readable) => {
+              resolve({ error, payload, events, stream });
             });
           });
         }).catch(() => {});
