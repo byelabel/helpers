@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix for searching only given path and subpaths (794847f)
 
+- **utils**: add streaming reply support to rabbit Add sendMessageForReplyStream so callers can receive RPC replies as a Node Readable and pipe directly to clients without buffering the full payload in memory. (dbf2e2f)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
