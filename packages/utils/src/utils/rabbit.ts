@@ -508,14 +508,14 @@ export function receiveMessage(queue: string, callback?: Function): Promise<void
           }
 
           if (callback && isFunction(callback)) {
-            const { events, stream, ...result } = await callback(params);
+            const { events, ...result } = await callback(params);
 
             if (message.properties?.replyTo) {
               const correlationId = message.properties?.correlationId;
 
-              // streaming reply: pipe a Readable straight into the chunk protocol
-              if (stream && isFunction((stream as Readable).pipe)) {
-                await sendReadableStream(message.properties.replyTo, stream as Readable, {
+              // streaming reply: payload itself is a Readable — pipe it straight into the chunk protocol
+              if (result.payload && isFunction((result.payload as Readable).pipe)) {
+                await sendReadableStream(message.properties.replyTo, result.payload as Readable, {
                   replyTo: message.properties.replyTo,
                   correlationId,
                   persistent: true
@@ -929,8 +929,8 @@ export function listen(showInfo: boolean = false): Promise<void> {
           }
 
           return new Promise((resolve) => {
-            eventEmitter.emit(name, params.data, (error: AppError, payload: any, events?: Record<string, Function>, stream?: Readable) => {
-              resolve({ error, payload, events, stream });
+            eventEmitter.emit(name, params.data, (error: AppError, payload: any | Readable, events?: Record<string, Function>) => {
+              resolve({ error, payload, events });
             });
           });
         }).catch(() => {});

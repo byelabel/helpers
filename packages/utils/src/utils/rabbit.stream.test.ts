@@ -149,7 +149,7 @@ describe('rabbit streaming reply', () => {
   it('round-trips a small Readable as a stream reply', async () => {
     const payload = Buffer.from('hello stream');
 
-    await receiveMessage('file', () => ({ stream: Readable.from(payload) }));
+    await receiveMessage('file', () => ({ payload: Readable.from(payload) }));
 
     const reply = await sendMessageForReplyStream('file', { id: 1 });
     const buf = await readAll(reply);
@@ -163,7 +163,7 @@ describe('rabbit streaming reply', () => {
 
     for (let i = 0; i < payload.length; i++) payload[i] = i % 256;
 
-    await receiveMessage('big', () => ({ stream: Readable.from(payload) }));
+    await receiveMessage('big', () => ({ payload: Readable.from(payload) }));
 
     const reply = await sendMessageForReplyStream('big', {});
     const buf = await readAll(reply);
@@ -172,7 +172,7 @@ describe('rabbit streaming reply', () => {
   });
 
   it('handles an empty Readable', async () => {
-    await receiveMessage('empty', () => ({ stream: Readable.from(Buffer.alloc(0)) }));
+    await receiveMessage('empty', () => ({ payload: Readable.from(Buffer.alloc(0)) }));
 
     const reply = await sendMessageForReplyStream('empty', {});
     const buf = await readAll(reply);
@@ -187,7 +187,7 @@ describe('rabbit streaming reply', () => {
       }
     });
 
-    await receiveMessage('broken', () => ({ stream: failing }));
+    await receiveMessage('broken', () => ({ payload: failing }));
 
     const reply = await sendMessageForReplyStream('broken', {});
 
@@ -204,7 +204,7 @@ describe('rabbit streaming reply', () => {
       }
     });
 
-    await receiveMessage('partial', () => ({ stream: partial }));
+    await receiveMessage('partial', () => ({ payload: partial }));
 
     const reply = await sendMessageForReplyStream('partial', {});
 

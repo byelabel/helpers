@@ -365,12 +365,12 @@ await rabbit.receiveMessage('account', async (params) => {
 
 // listen + reply with a Readable (chunks are sent as they flow)
 await rabbit.receiveMessage('file', async (params) => {
-  return { stream: fs.createReadStream(`/storage/${params.id}.pdf`) };
+  return { payload: fs.createReadStream(`/storage/${params.id}.pdf`) };
 });
 
-// via the eventEmitter (the reply callback's 4th arg is the stream)
+// via the eventEmitter — payload can be a regular value or a Readable
 eventEmitter.on('file.download', (params, reply) => {
-  reply(null, null, undefined, fs.createReadStream(`/storage/${params.id}.pdf`));
+  reply(null, fs.createReadStream(`/storage/${params.id}.pdf`));
 });
 
 // pub/sub
