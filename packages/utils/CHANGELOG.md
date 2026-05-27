@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - publish method changed (c699415)
 
+- added sequelize-typescript exports (5ef13de)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
