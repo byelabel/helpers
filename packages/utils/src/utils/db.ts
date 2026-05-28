@@ -5,7 +5,19 @@ import cluster from 'node:cluster';
 import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { createContext, Script } from 'node:vm';
-import { cast, col, Dialect, fn, json, literal, Op, QueryTypes, SequelizeScopeError, Transaction, where } from 'sequelize';
+import {
+  cast,
+  col,
+  Dialect,
+  fn,
+  json,
+  literal,
+  Op,
+  QueryTypes,
+  SequelizeScopeError,
+  Transaction,
+  where
+} from 'sequelize';
 import {
   AfterCreate,
   AfterUpdate,
@@ -16,10 +28,13 @@ import {
   BeforeUpsert,
   BelongsTo,
   Column,
+  CreatedAt,
   DataType,
   Default,
+  DeletedAt,
   ForeignKey,
   HasMany,
+  Index,
   Length,
   Model,
   PrimaryKey,
@@ -27,7 +42,8 @@ import {
   Sequelize,
   SequelizeOptions,
   Table,
-  Unique
+  Unique,
+  UpdatedAt
 } from 'sequelize-typescript';
 import { IInfiniteList, IList, paging } from './data';
 import { throwAppError } from './error';
@@ -944,14 +960,18 @@ export {
   BeforeUpsert,
   BelongsTo,
   Column,
+  CreatedAt,
   DataType,
   Default,
+  DeletedAt,
   ForeignKey,
   HasMany,
+  Index,
   Length,
   Model,
   PrimaryKey,
   Scopes,
   Table,
-  Unique
+  Unique,
+  UpdatedAt
 };
