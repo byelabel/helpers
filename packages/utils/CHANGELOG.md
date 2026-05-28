@@ -40,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - added sequelize-typescript exports (5ef13de)
 
+- added (CreatedAt, DeletedAt, Index, UpdatedAt) sequelize-typescript exports (f4b9aef)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
