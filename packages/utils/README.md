@@ -116,7 +116,8 @@ createHash('hello', 'sha256', 'mySec');  // explicit secret
 comparePassword(savedHash, plain);       // boolean
 createRandomHash(80);                    // hex string of length 80
 createKey(6);                            // 6-digit numeric token, e.g. '482913'
-createToken(5);                          // 5-char alphanumeric, e.g. 'A2K9F'
+createToken();                           // 6-char mixed-case token, no ambiguous chars (0/1/l/O), e.g. 'k7LqRt'
+createToken(8, 'usr_');                   // custom length + prefix, e.g. 'usr_R3x9Pq2t'
 getRandomNumber(1, 100);                 // inclusive integer in [1, 100]
 ```
 

@@ -87,6 +87,12 @@ describe('crypt', () => {
     it('produces different values across calls', () => {
       expect(createRandomHash()).not.toBe(createRandomHash());
     });
+
+    it('falls back to 80 on invalid length', () => {
+      expect(createRandomHash(0)).toHaveLength(80);
+      expect(createRandomHash(-5)).toHaveLength(80);
+      expect(createRandomHash(Number.NaN)).toHaveLength(80);
+    });
   });
 
   describe('createKey', () => {
@@ -100,20 +106,66 @@ describe('crypt', () => {
     it('defaults to length 6', () => {
       expect(createKey()).toHaveLength(6);
     });
+
+    it('falls back to length 6 on invalid or out-of-range length', () => {
+      expect(createKey(0)).toHaveLength(6);
+      expect(createKey(22)).toHaveLength(6);
+      expect(createKey(Number.NaN)).toHaveLength(6);
+    });
   });
 
   describe('createToken', () => {
+    // allowed: 2-9, a-z without l/o, A-Z without I/O
+    const ALLOWED = /^[2-9a-km-np-zA-HJ-NP-Z]+$/;
+
     it('returns a token of the requested length', () => {
       expect(createToken(5)).toHaveLength(5);
       expect(createToken(20)).toHaveLength(20);
     });
 
-    it('defaults to length 5', () => {
-      expect(createToken()).toHaveLength(5);
+    it('defaults to length 6', () => {
+      expect(createToken()).toHaveLength(6);
     });
 
-    it('uses uppercase alphanumeric characters', () => {
-      expect(createToken(50)).toMatch(/^[0-9A-Z]+$/);
+    it('falls back to length 6 on invalid length', () => {
+      expect(createToken(0)).toHaveLength(6);
+      expect(createToken(-3)).toHaveLength(6);
+      expect(createToken(Number.NaN)).toHaveLength(6);
+      expect(createToken(Number.POSITIVE_INFINITY)).toHaveLength(6);
+    });
+
+    it('uses only the unambiguous alphanumeric alphabet', () => {
+      expect(createToken(200)).toMatch(ALLOWED);
+    });
+
+    it('never contains ambiguous characters (0, 1, I, O, l, o)', () => {
+      const out = createToken(500);
+
+      expect(out).not.toMatch(/[01IOlo]/);
+    });
+
+    it('produces mixed-case output over a large sample', () => {
+      const out = createToken(500);
+
+      expect(out).toMatch(/[a-z]/);
+      expect(out).toMatch(/[A-Z]/);
+    });
+
+    it('prepends the prefix without counting it toward length', () => {
+      const out = createToken(8, 'usr_');
+
+      expect(out.startsWith('usr_')).toBe(true);
+      expect(out).toHaveLength(12);
+      expect(out.slice(4)).toMatch(ALLOWED);
+    });
+
+    it('ignores a non-string prefix', () => {
+      // @ts-expect-error exercising runtime guard
+      expect(createToken(6, 123)).toMatch(ALLOWED);
+    });
+
+    it('produces different values across calls', () => {
+      expect(createToken(20)).not.toBe(createToken(20));
     });
   });
 

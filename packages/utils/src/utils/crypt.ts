@@ -1,5 +1,5 @@
 import { createHash as createSimpleHash, createHmac, randomBytes } from 'node:crypto';
-import { isNonEmptyString, isNumber } from './validator';
+import { isNonEmptyString } from './validator';
 
 export function createHash(str: string, algorithm: 'sha256' | 'md5' = 'sha256', secret?: string): string {
   if (!isNonEmptyString(secret)) {
@@ -16,13 +16,13 @@ export function comparePassword(hash: string, password: string): boolean {
 }
 
 export function createRandomHash(length = 80): string {
-  if (!isNumber(length) || length < 1) length = 80;
+  if (!Number.isFinite(length) || length < 1) length = 80;
 
   return randomBytes(Math.floor(length / 2)).toString('hex');
 }
 
 export function createKey(length = 6): string {
-  if (!isNumber(length) || length < 1 || length > 21) length = 6;
+  if (!Number.isFinite(length) || length < 1 || length > 21) length = 6;
 
   const min = 10 ** (length - 1);
   const max = 10 ** length - 1;
@@ -31,13 +31,13 @@ export function createKey(length = 6): string {
 }
 
 export function createToken(length = 6, prefix = ''): string {
-  if (!isNumber(length) || length < 1) length = 6;
+  if (!Number.isFinite(length) || length < 1) length = 6;
   if (!isNonEmptyString(prefix)) prefix = '';
 
   // 0/1 dropped; ambiguous letters kept only in their distinct case (L not l, o not O)
   const numbers = '23456789';
   const lower = 'abcdefghijkmnpqrstuvwxyz'; // no l, no o
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no O
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no O, no I
   const alphabet = numbers + lower + upper;
 
   let randomString = '';
