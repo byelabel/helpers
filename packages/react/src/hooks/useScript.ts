@@ -6,10 +6,11 @@ export type ScriptPosition = 'head-start' | 'head-end' | 'body-start' | 'body-en
 export type UseScriptOptions = {
   enable?: boolean;
   position?: ScriptPosition;
+  attributes?: Record<string, string>;
 };
 
 export default function useScript(src: string, options?: UseScriptOptions): ScriptStatus {
-  const { enable = true, position = 'body-end' } = options ?? {};
+  const { enable = true, position = 'body-end', attributes = null } = options ?? {};
   const [status, setStatus] = useState<ScriptStatus>(src ? 'loading' : 'idle');
 
   useEffect(() => {
@@ -27,6 +28,13 @@ export default function useScript(src: string, options?: UseScriptOptions): Scri
       script.src = src;
       script.async = true;
       script.setAttribute('data-status', 'loading');
+
+      // Extra attributes (e.g. data-api-key for Shopify App Bridge)
+      if (attributes) {
+        for (const [name, value] of Object.entries(attributes)) {
+          script.setAttribute(name, value);
+        }
+      }
 
       if (position === 'head-start') {
         document.head.insertBefore(script, document.head.childNodes[0]);
