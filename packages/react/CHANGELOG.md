@@ -5,6 +5,33 @@ All notable changes to `@byelabel/react` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **utils**: harden crypt token/key generation - createToken: mixed-case alphanumeric pool excluding ambiguous chars (drop 0/1/I, keep L not l, keep o not O), add optional prefix param - createToken/createKey/createRandomHash: validate length, fall back to defaults on invalid input (createKey capped at 21 digits) (43dfaa6)
+- **utils**: harden crypt token/key generation - createToken: mixed-case alphanumeric pool excluding ambiguous chars (drop 0/1/I, keep L not l, keep o not O), add optional prefix param - createToken/createKey/createRandomHash: validate length, fall back to defaults on invalid input (createKey capped at 21 digits) (5ac5166)
+- **utils**: add streaming reply support to rabbit (f48723f)
+- **utils**: add streaming reply support to rabbit Add sendMessageForReplyStream so callers can receive RPC replies as a Node Readable and pipe directly to clients without buffering the full payload in memory. (dbf2e2f)
+
+
+- loadEnv exported directly (* import removed) fix: undefined variable check added (e2f81bf)
+
+
+- added attributes (c024b20)
+- added (CreatedAt, DeletedAt, Index, UpdatedAt) sequelize-typescript exports (f4b9aef)
+- added sequelize-typescript exports (5ef13de)
+- publish method changed (c699415)
+- fix for searching only given path and subpaths (794847f)
+- logging fix (c8627eb)
+- info messages change to console.info (fffb205)
+- system logging added to db (removed console.log) (e615645)
+- date time added to logs on console (f625f0d)
+- sequelize-typescript undeleted and update revoked (16ca38c)
+- removed unnecessary package (sequelize-typescript) from dependencies (758ae42)
+- package updates: amqplib to 2.0.1 version (45bc86d)
+- package updates: amqplib to 2.0.1 version (658e94e)
+- money.format renamed to money.display (0fd92ea)
+- README doc updates (456ea90)
+- Signature changes (07b5b78)
+- Signature changes (37ee04f)
+
 ## [0.0.5] - 2026-05-09
 
 ### Other
