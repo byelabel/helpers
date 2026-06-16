@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Signature changes (07b5b78)
 - Signature changes (37ee04f)
 
+- useClipboard hook added (a44b1e1)
+
 ## [0.0.5] - 2026-05-09
 
 ### Other
