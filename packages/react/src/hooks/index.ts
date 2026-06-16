@@ -1,3 +1,4 @@
+export { default as useClipboard } from './useClipboard';
 export { default as useCountdown } from './useCountdown';
 export { default as useDebounceEffect } from './useDebounceEffect';
 export * from './useDebouncedValue';
@@ -11,6 +12,7 @@ export { default as useTable } from './useTable';
 export { default as useTabs } from './useTabs';
 export { default as useTimeout } from './useTimeout';
 
+export type { ClipboardTarget, UseClipboardOptions, UseClipboardResult } from './useClipboard';
 export type { Countdown } from './useCountdown';
 export type { ScriptPosition, ScriptStatus, UseScriptOptions } from './useScript';
 export type { Order, UseTableProps } from './useTable';
