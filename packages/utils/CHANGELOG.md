@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **utils**: harden crypt token/key generation - createToken: mixed-case alphanumeric pool excluding ambiguous chars (drop 0/1/I, keep L not l, keep o not O), add optional prefix param - createToken/createKey/createRandomHash: validate length, fall back to defaults on invalid input (createKey capped at 21 digits) (43dfaa6)
 - **utils**: harden crypt token/key generation - createToken: mixed-case alphanumeric pool excluding ambiguous chars (drop 0/1/I, keep L not l, keep o not O), add optional prefix param - createToken/createKey/createRandomHash: validate length, fall back to defaults on invalid input (createKey capped at 21 digits) (5ac5166)
 
+- logging update for redis flush db usage of built in functions (a81a4d2)
+- useClipboard hook added (a44b1e1)
+- added attributes (c024b20)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
