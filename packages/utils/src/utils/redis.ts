@@ -2,7 +2,6 @@ import joi from 'joi';
 import process from 'node:process';
 import { createClient, createCluster, RedisClientType, RedisClusterType } from 'redis';
 import { AppError, throwAppError } from './error';
-import { logInfo } from './log';
 import { isNonEmptyString, isNumeric } from './validator';
 
 const processId = process.pid;
@@ -101,7 +100,7 @@ export function connect(options?: IRedisOptions): Promise<RedisClusterType | Red
           if (opts.flush) {
             // @ts-ignore
             client.sendCommand(['FLUSHDB']).then(flush => {
-              logInfo(`Redis Flush DB: ${flush}`, true).catch(() => {});
+              console.info(`Redis Flush DB: ${flush}`);
             }).catch(() => {});
           }
 
