@@ -1,5 +1,4 @@
 import { URL } from 'node:url';
-import { validate } from 'uuid';
 
 export function isBuffer(value: any): boolean {
   return value instanceof Buffer;
@@ -78,7 +77,7 @@ export function isAsyncFunction(value: any): boolean {
 }
 
 export function isUUID(value: any): boolean {
-  return isString(value) && validate(value);
+  return isString(value) && /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/i.test(value);
 }
 
 export function isEmail(value: any): boolean {

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
+import { randomUUID as uuid } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import process from 'node:process';
-import { v4 } from 'uuid';
 import { createHash } from './crypt';
 import { AppError, IAppError } from './error';
 import { logError } from './log';
@@ -54,7 +54,7 @@ export function responseData(error?: IAppError | Error | null, payload?: any, tr
 export function toResponse(req: Request, res: Response, callback: Function, onError?: Function): void {
   if (isFunction(callback)) {
     const logs = (process.env.LOG || '').toString().split(',').map(s => s.trim()).filter(s => s.length);
-    const transactionId = createHash(v4(), 'md5');
+    const transactionId = createHash(uuid(), 'md5');
     const t0 = performance.now();
     const separator = '-';
     const service = (process.env.NAME || 'Microservice').toLowerCase().replace(/[^a-z0-9_]/g, separator).replace(new RegExp(`^${separator}+|${separator}+$|${separator}+(?=${separator})`, 'g'), '');

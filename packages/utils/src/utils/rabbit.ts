@@ -1,8 +1,8 @@
 import amqp from 'amqplib';
 import joi from 'joi';
+import { randomUUID as uuid } from 'node:crypto';
 import process from 'node:process';
 import { Readable } from 'node:stream';
-import { v4 } from 'uuid';
 import { AppError, throwAppError } from './error';
 import eventEmitter from './events';
 import { logError, logInfo, logWarning } from './log';
@@ -336,7 +336,7 @@ function sendReadableStream(replyQueue: string, source: Readable, properties: am
         expires: (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 30)) * 1000
       });
 
-      const id = v4();
+      const id = uuid();
 
       let index = 0;
       let carry: Buffer = Buffer.alloc(0);
@@ -457,7 +457,7 @@ function sendStream(queue: string, message: Buffer, properties?: amqp.Options.Pu
         expires: (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 30)) * 1000
       });
 
-      const id = v4();
+      const id = uuid();
       const length = Math.ceil(message.byteLength / (config.messageMaxSize as number));
 
       for (let index = 0; index < length; index++) {
@@ -644,7 +644,7 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
       }, expires);
 
       // check to compare incoming message
-      const correlationId = v4();
+      const correlationId = uuid();
 
       await channel.consume(q.queue, async (message) => {
         if (message && (message.properties?.correlationId === correlationId)) {
@@ -718,7 +718,7 @@ export function sendMessageForReplyStream(name: string, data?: any, options?: IS
         expires
       });
 
-      const correlationId = v4();
+      const correlationId = uuid();
 
       let settled = false;
       let consumerTag: string | null = null;
@@ -880,7 +880,7 @@ export function publishMessage(exchange: string, key: string, data?: any): Promi
       const message = Buffer.from(JSON.stringify({ key, data }));
 
       if (message.byteLength > (config.messageMaxSize as number)) {
-        const id = v4();
+        const id = uuid();
         const length = Math.ceil(message.byteLength / (config.messageMaxSize as number));
 
         for (let index = 0; index < length; index++) {
