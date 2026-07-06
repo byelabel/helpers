@@ -49,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - useClipboard hook added (a44b1e1)
 - added attributes (c024b20)
 
+- removed dependency "uuid", used native modules (fb2ec59)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
