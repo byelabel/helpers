@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - added RABBIT_PREFETCH (default 10), switched consumers to manual ack for real backpressure (4e28f53)
 
+- added toOz/toGr converters, renamed toPounds/toInches to toLb/toIn, fixed isNumeric(NaN) (32f9fd8)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
