@@ -64,7 +64,7 @@ Type guards for runtime shape checks. All return `boolean`.
 | `isBoolean(v)` | boolean |
 | `isNumber(v)` | typeof number (does not include numeric strings) |
 | `isInteger(v)` | numeric and integer |
-| `isNumeric(v)` | number or numeric string |
+| `isNumeric(v)` | number or numeric string (`NaN` is not numeric) |
 | `isString(v)` | string |
 | `isNonEmptyString(v)` | string and not `''` |
 | `isObject(v)` | plain object |
@@ -172,7 +172,7 @@ showMessages([
 
 ### `@byelabel/utils/number`
 
-Number formatting helpers built on `Intl.NumberFormat`. Exposed flat (`toNumber`, `formatBytes`, `getRandom`, ...) and namespaced (`number.format`, `number.currency`, `number.short`, `number.percent`) — the namespace form is recommended for the generic names. The formatter functions take a single human-readable options object (no raw `Intl.NumberFormatOptions` pass-through).
+Number formatting helpers built on `Intl.NumberFormat`, plus shipping unit converters (`toLb`, `toOz`, `toKg`, `toGr`, `toIn`, `toCm`). Exposed flat (`toNumber`, `formatBytes`, `getRandom`, ...) and namespaced (`number.format`, `number.currency`, `number.short`, `number.percent`) — the namespace form is recommended for the generic names. The formatter functions take a single human-readable options object (no raw `Intl.NumberFormatOptions` pass-through).
 
 ```ts
 import { number, toNumber, formatBytes, getRandom } from '@byelabel/utils';
@@ -204,6 +204,18 @@ getRandom(1, 10);                                          // integer in [1, 10]
 
 formatBytes(2048);                                         // '2.0 KB'
 formatBytes(5 * 1024 * 1024);                              // '5.0 MB'
+
+// weight converters — input is { unit: 'lb' | 'oz' | 'kg' | 'gr', value }
+toLb({ unit: 'kg', value: 1 });                            // 2.2
+toOz({ unit: 'lb', value: 1 });                            // 16
+toKg({ unit: 'oz', value: 16 });                           // 0.454
+toGr({ unit: 'kg', value: 0.5 });                          // 500
+toLb({ unit: 'kg', value: 'abc' as any });                 // 0 (non-numeric → 0)
+
+// dimension converters
+toIn(2.54, 'cm');                                          // 1
+toCm(1, 'in');                                             // 2.5
+toIn(0, 'in');                                             // 1 (zero/non-numeric → 1)
 ```
 
 Options accepted by each formatter:
@@ -215,6 +227,17 @@ Options accepted by each formatter:
 | `currencySymbol(code?, options?)` | `locale` |
 | `percent(n, options?)` | `locale`, `decimals` (exact fraction digits) |
 | `short(n, options?)` | `locale`, `decimals` (max fraction digits, default `1`), `long` (long compact display, default `false`) |
+
+Unit converters for shipping weights and dimensions. Weight functions take a `Weight` object — `{ unit: 'lb' | 'oz' | 'kg' | 'gr', value }` (`Weight` / `WeightUnit` types are exported); missing or non-numeric values fall back to `0`. Dimension functions take `(value, 'in' | 'cm')`; zero or non-numeric values fall back to `1`. Numeric strings are accepted everywhere.
+
+| Function | Returns | Rounding |
+| --- | --- | --- |
+| `toLb(weight)` | pounds | 2 dp |
+| `toOz(weight)` | ounces | 2 dp |
+| `toKg(weight)` | kilograms | 3 dp |
+| `toGr(weight)` | grams | 1 dp |
+| `toIn(value, unit)` | inches | 2 dp |
+| `toCm(value, unit)` | centimeters | 1 dp |
 
 ### `@byelabel/utils/money`
 
@@ -394,17 +417,20 @@ await rabbit.listen(true);
 | `vhost` | `RABBIT_VHOST` | — |
 | `namespace` | `RABBIT_NAMESPACE` | — |
 | `messageMaxSize` | `RABBIT_MESSAGE_MAX_SIZE` | `5000000` |
+| `prefetch` | `RABBIT_PREFETCH` | `10` (per-consumer cap on unacked deliveries; `0` = unlimited) |
 | `timeout` | `RABBIT_TIMEOUT` | `30`/`60` (per call) |
 | `queues` | `RABBIT_QUEUES` | — (used by `listen`) |
 | `exchanges` | `RABBIT_EXCHANGES` | — (used by `listen`) |
 | `heartbeat` | `RABBIT_HEARTBEAT` | `60` (seconds; `0` disables) |
 | `keepAlive` | `RABBIT_KEEP_ALIVE` | `true` (set `RABBIT_KEEP_ALIVE=false` to disable TCP keepalive) |
 | `keepAliveDelay` | `RABBIT_KEEP_ALIVE_DELAY` | `10000` (ms; idle time before kernel sends keepalive probes) |
-| `maxRetries` | `RABBIT_MAX_RETRIES` | `5` (additional attempts after the first) |
+| `maxRetries` | `RABBIT_MAX_RETRIES` | `10` (max connect attempts) |
 | `retryDelay` | `RABBIT_RETRY_DELAY` | `500` (ms; initial backoff, doubles per attempt) |
 | `retryMaxDelay` | `RABBIT_RETRY_MAX_DELAY` | `5000` (ms; backoff cap) |
 
 The connection name advertised to RabbitMQ is `${name}-${pid}` — `name` is taken from the `name` option, falling back to `RABBIT_NAME`, then `process.env.NAME`, then `'microservice'`. Each service shows up identifiable in the broker's connections view.
+
+Queue consumers (`receiveMessage` / `listen`) use manual acks: a message is acked after its handler settles, so `prefetch` bounds how many messages each worker processes concurrently — slow handlers apply backpressure instead of buffering the whole queue in memory. Handler errors are logged and the message is still acked (consumed once, no requeue loop); if a worker dies mid-handler, its unacked messages are redelivered.
 
 `checkRabbitConfig` throws `AppError('MISSING_RABBIT_HOST')` when host is missing.
 

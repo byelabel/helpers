@@ -73,3 +73,19 @@ describe('validator', () => {
     expect(isUUID('abc')).toBe(false);
   });
 });
+
+describe('isNumeric NaN handling', () => {
+  it('rejects NaN', () => {
+    expect(isNumeric(NaN)).toBe(false);
+  });
+
+  it('rejects the string "NaN"', () => {
+    expect(isNumeric('NaN')).toBe(false);
+  });
+
+  it('still accepts numbers and numeric strings', () => {
+    expect(isNumeric(0)).toBe(true);
+    expect(isNumeric(-1.5)).toBe(true);
+    expect(isNumeric('3.14')).toBe(true);
+  });
+});

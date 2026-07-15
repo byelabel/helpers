@@ -122,18 +122,69 @@ export function formatBytes(bytes: number): string {
   return `${Math.max(bytes, 0.1).toFixed(1)} ${units[i]}`;
 }
 
-export function toPounds(weight: { unit: 'lb' | 'kg', value: number }): number {
-  return weight?.unit === 'kg' ? toNumber(weight.value * 2.20462, 2) : toNumber(weight?.value || 0, 2);
+const LB_TO_KG = 0.45359237;
+const OZ_TO_GR = 28.349523125;
+const IN_TO_CM = 2.54;
+
+export type WeightUnit = 'lb' | 'oz' | 'kg' | 'gr';
+
+export interface Weight {
+  unit: WeightUnit;
+  value: number;
 }
 
-export function toInches(value: number, unit: 'in' | 'cm'): number {
-  return unit === 'cm' ? toNumber((value || 1) / 2.54, 2) : toNumber(value || 1, 2);
+export function toLb(weight: Weight): number {
+  const value = isNumeric(weight?.value) ? Number(weight.value) : 0;
+
+  switch (weight?.unit) {
+    case 'oz': return toNumber(value / 16, 2);
+    case 'kg': return toNumber(value / LB_TO_KG, 2);
+    case 'gr': return toNumber(value / (LB_TO_KG * 1000), 2);
+    default: return toNumber(value, 2);
+  }
 }
 
-export function toKg(weight: { unit: 'lb' | 'kg', value: number }): number {
-  return weight?.unit === 'lb' ? toNumber(weight.value * 0.453592, 3) : toNumber(weight?.value || 0, 3);
+export function toOz(weight: Weight): number {
+  const value = isNumeric(weight?.value) ? Number(weight.value) : 0;
+
+  switch (weight?.unit) {
+    case 'lb': return toNumber(value * 16, 2);
+    case 'kg': return toNumber((value * 1000) / OZ_TO_GR, 2);
+    case 'gr': return toNumber(value / OZ_TO_GR, 2);
+    default: return toNumber(value, 2);
+  }
+}
+
+export function toKg(weight: Weight): number {
+  const value = isNumeric(weight?.value) ? Number(weight.value) : 0;
+
+  switch (weight?.unit) {
+    case 'lb': return toNumber(value * LB_TO_KG, 3);
+    case 'oz': return toNumber((value * OZ_TO_GR) / 1000, 3);
+    case 'gr': return toNumber(value / 1000, 3);
+    default: return toNumber(value, 3);
+  }
+}
+
+export function toGr(weight: Weight): number {
+  const value = isNumeric(weight?.value) ? Number(weight.value) : 0;
+
+  switch (weight?.unit) {
+    case 'lb': return toNumber(value * LB_TO_KG * 1000, 1);
+    case 'oz': return toNumber(value * OZ_TO_GR, 1);
+    case 'kg': return toNumber(value * 1000, 1);
+    default: return toNumber(value, 1);
+  }
+}
+
+export function toIn(value: number, unit: 'in' | 'cm'): number {
+  const val = (isNumeric(value) ? Number(value) : 0) || 1;
+
+  return unit === 'cm' ? toNumber(val / IN_TO_CM, 2) : toNumber(val, 2);
 }
 
 export function toCm(value: number, unit: 'in' | 'cm'): number {
-  return unit === 'in' ? toNumber((value || 1) * 2.54, 1) : toNumber(value || 1, 1);
+  const val = (isNumeric(value) ? Number(value) : 0) || 1;
+
+  return unit === 'in' ? toNumber(val * IN_TO_CM, 1) : toNumber(val, 1);
 }

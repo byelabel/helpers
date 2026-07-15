@@ -1,7 +1,21 @@
+import { Readable } from 'node:stream';
 import { URL } from 'node:url';
+import { AppError } from './error';
 
 export function isBuffer(value: any): value is Buffer {
   return value instanceof Buffer;
+}
+
+export function isReadableStream(value: any): value is Readable {
+  return value instanceof Readable;
+}
+
+export function isError(value: any): value is Error {
+  return value instanceof Error;
+}
+
+export function isAppError(value: any): value is AppError {
+  return value instanceof AppError;
 }
 
 export function isSymbol(value: any): value is symbol {
@@ -37,7 +51,7 @@ export function isInteger(value: any): boolean {
 }
 
 export function isNumeric(value: any): boolean {
-  return isNumber(value) || (isNonEmptyString(value) && !isNaN(Number(value)));
+  return (isNumber(value) && !Number.isNaN(value)) || (isNonEmptyString(value) && !isNaN(Number(value)));
 }
 
 export function isString(value: any): value is string {
