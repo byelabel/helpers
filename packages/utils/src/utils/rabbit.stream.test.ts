@@ -104,6 +104,7 @@ const fakeChannel: any = {
   deleteQueue: (q: string) => broker.deleteQueue(q),
   waitForConfirms: () => broker.waitForConfirms(),
   ack: (m: any) => broker.ack(m),
+  prefetch: () => Promise.resolve(),
   on: () => fakeChannel,
   assertExchange: () => Promise.resolve({ exchange: '' }),
   bindQueue: () => Promise.resolve(),

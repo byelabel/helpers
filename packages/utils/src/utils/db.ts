@@ -624,7 +624,7 @@ function filterValueConverter(formula: string | Function, param: any): any {
   } else if (isNumber(param) || isBoolean(param)) {
     value = (formula as string).replace(
       new RegExp('{value}', 'g'),
-      param
+      String(param)
     );
   } else {
     value = escapeString((formula as string).replace(

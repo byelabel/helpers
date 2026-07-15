@@ -14,6 +14,7 @@ const ENV_KEYS = [
   'RABBIT_MESSAGE_MAX_SIZE',
   'RABBIT_TIMEOUT',
   'RABBIT_HEARTBEAT',
+  'RABBIT_PREFETCH',
   'RABBIT_QUEUES',
   'RABBIT_EXCHANGES',
   'RABBIT_MAX_RETRIES',
@@ -60,6 +61,7 @@ describe('checkRabbitConfig', () => {
     expect(opts.messageMaxSize).toBe(5000000);
     expect(opts.timeout).toBe(0);
     expect(opts.heartbeat).toBe(60);
+    expect(opts.prefetch).toBe(10);
     expect(opts.maxRetries).toBe(10);
     expect(opts.retryDelay).toBe(500);
     expect(opts.retryMaxDelay).toBe(5000);
@@ -130,6 +132,19 @@ describe('checkRabbitConfig', () => {
     process.env.RABBIT_HOST = 'h';
     process.env.RABBIT_HEARTBEAT = 'abc';
 
+    expect(() => checkRabbitConfig()).toThrow(AppError);
+  });
+
+  it('reads prefetch from env and allows 0 to disable the cap', () => {
+    process.env.RABBIT_HOST = 'h';
+
+    process.env.RABBIT_PREFETCH = '25';
+    expect(checkRabbitConfig().prefetch).toBe(25);
+
+    process.env.RABBIT_PREFETCH = '0';
+    expect(checkRabbitConfig().prefetch).toBe(0);
+
+    process.env.RABBIT_PREFETCH = '-1';
     expect(() => checkRabbitConfig()).toThrow(AppError);
   });
 });

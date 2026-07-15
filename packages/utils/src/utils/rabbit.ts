@@ -39,6 +39,7 @@ export type IRabbitOptions = {
   messageMaxSize?: number,
   timeout?: number,
   heartbeat?: number,
+  prefetch?: number,
   queues?: string,
   exchanges?: string,
   maxRetries?: number,
@@ -80,6 +81,7 @@ const optionsSchema = joi.object<IRabbitOptions>({
   messageMaxSize: joi.number().integer().min(0).default(5000000),
   timeout: joi.number().min(0).default(0),
   heartbeat: joi.number().integer().min(0).default(60),
+  prefetch: joi.number().integer().min(0).default(10),
   queues: joi.string().trim().allow('').optional(),
   exchanges: joi.string().trim().allow('').optional(),
   maxRetries: joi.number().integer().min(0).default(10),
@@ -102,6 +104,7 @@ export function checkRabbitConfig(options?: IRabbitOptions): IRabbitOptions {
     messageMaxSize: options?.messageMaxSize ?? process.env.RABBIT_MESSAGE_MAX_SIZE,
     timeout: options?.timeout ?? process.env.RABBIT_TIMEOUT,
     heartbeat: options?.heartbeat ?? process.env.RABBIT_HEARTBEAT,
+    prefetch: options?.prefetch ?? process.env.RABBIT_PREFETCH,
     queues: options?.queues ?? process.env.RABBIT_QUEUES,
     exchanges: options?.exchanges ?? process.env.RABBIT_EXCHANGES,
     maxRetries: options?.maxRetries ?? process.env.RABBIT_MAX_RETRIES,
@@ -200,6 +203,11 @@ export function connect(options?: IRabbitOptions): Promise<{
         if (!channel[processId]) {
           const ch = await connection[processId]!.createConfirmChannel();
           channel[processId] = ch;
+
+          // per-consumer cap on unacked deliveries; 0 = unlimited
+          if ((config.prefetch as number) > 0) {
+            await ch.prefetch(config.prefetch as number);
+          }
 
           ch.on('error', e => {
             const code = (e as any)?.code;
@@ -496,7 +504,9 @@ export function receiveMessage(queue: string, callback?: Function): Promise<void
       });
 
       await channel.consume(queue, async (message) => {
-        if (message) {
+        if (!message) return;
+
+        try {
           message.content = await receiveStream(message);
 
           let params: any = message.content?.toString();
@@ -570,9 +580,15 @@ export function receiveMessage(queue: string, callback?: Function): Promise<void
               }
             }
           }
+        } catch (e) {
+          logError('RabbitMQ message handler error', e as Error, null, true).catch(() => {});
+        } finally {
+          // ack after the handler settles so prefetch bounds in-flight work;
+          // ack on error too — no dead-letter setup, requeueing would loop
+          try { channel.ack(message); } catch {}
         }
       }, {
-        noAck: true
+        noAck: false
       });
 
       resolve();

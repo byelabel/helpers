@@ -121,3 +121,19 @@ export function formatBytes(bytes: number): string {
 
   return `${Math.max(bytes, 0.1).toFixed(1)} ${units[i]}`;
 }
+
+export function toPounds(weight: { unit: 'lb' | 'kg', value: number }): number {
+  return weight?.unit === 'kg' ? toNumber(weight.value * 2.20462, 2) : toNumber(weight?.value || 0, 2);
+}
+
+export function toInches(value: number, unit: 'in' | 'cm'): number {
+  return unit === 'cm' ? toNumber((value || 1) / 2.54, 2) : toNumber(value || 1, 2);
+}
+
+export function toKg(weight: { unit: 'lb' | 'kg', value: number }): number {
+  return weight?.unit === 'lb' ? toNumber(weight.value * 0.453592, 3) : toNumber(weight?.value || 0, 3);
+}
+
+export function toCm(value: number, unit: 'in' | 'cm'): number {
+  return unit === 'in' ? toNumber((value || 1) * 2.54, 1) : toNumber(value || 1, 1);
+}
