@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - removed dependency "uuid", used native modules (fb2ec59)
 
+- added RABBIT_PREFETCH (default 10), switched consumers to manual ack for real backpressure (4e28f53)
+
 ## [1.1.2] - 2026-05-09
 
 ### Other
