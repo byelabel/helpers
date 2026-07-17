@@ -150,43 +150,43 @@ describe('formatBytes', () => {
 });
 describe('weight conversions', () => {
   it('toLb converts from each unit', () => {
-    expect(toLb({ unit: 'lb', value: 2 })).toBe(2);
-    expect(toLb({ unit: 'kg', value: 1 })).toBe(2.2);
-    expect(toLb({ unit: 'oz', value: 16 })).toBe(1);
-    expect(toLb({ unit: 'gr', value: 453.59237 })).toBe(1);
+    expect(toLb(2, 'lb')).toBe(2);
+    expect(toLb(1, 'kg')).toBe(2.2);
+    expect(toLb(16, 'oz')).toBe(1);
+    expect(toLb(453.59237, 'gr')).toBe(1);
   });
 
   it('toOz converts from each unit', () => {
-    expect(toOz({ unit: 'oz', value: 3 })).toBe(3);
-    expect(toOz({ unit: 'lb', value: 1 })).toBe(16);
-    expect(toOz({ unit: 'kg', value: 1 })).toBe(35.27);
-    expect(toOz({ unit: 'gr', value: 28.349523125 })).toBe(1);
+    expect(toOz(3, 'oz')).toBe(3);
+    expect(toOz(1, 'lb')).toBe(16);
+    expect(toOz(1, 'kg')).toBe(35.27);
+    expect(toOz(28.349523125, 'gr')).toBe(1);
   });
 
   it('toKg converts from each unit', () => {
-    expect(toKg({ unit: 'kg', value: 1.5 })).toBe(1.5);
-    expect(toKg({ unit: 'lb', value: 1 })).toBe(0.454);
-    expect(toKg({ unit: 'oz', value: 16 })).toBe(0.454);
-    expect(toKg({ unit: 'gr', value: 500 })).toBe(0.5);
+    expect(toKg(1.5, 'kg')).toBe(1.5);
+    expect(toKg(1, 'lb')).toBe(0.454);
+    expect(toKg(16, 'oz')).toBe(0.454);
+    expect(toKg(500, 'gr')).toBe(0.5);
   });
 
   it('toGr converts from each unit', () => {
-    expect(toGr({ unit: 'gr', value: 250 })).toBe(250);
-    expect(toGr({ unit: 'lb', value: 1 })).toBe(453.6);
-    expect(toGr({ unit: 'oz', value: 1 })).toBe(28.3);
-    expect(toGr({ unit: 'kg', value: 0.5 })).toBe(500);
+    expect(toGr(250, 'gr')).toBe(250);
+    expect(toGr(1, 'lb')).toBe(453.6);
+    expect(toGr(1, 'oz')).toBe(28.3);
+    expect(toGr(0.5, 'kg')).toBe(500);
   });
 
   it('falls back to 0 for missing or non-numeric values', () => {
-    expect(toLb({ unit: 'kg', value: undefined as any })).toBe(0);
-    expect(toOz({ unit: 'lb', value: 'abc' as any })).toBe(0);
-    expect(toKg(null as any)).toBe(0);
-    expect(toGr({ unit: 'kg', value: NaN })).toBe(0);
+    expect(toLb(undefined as any, 'kg')).toBe(0);
+    expect(toOz('abc' as any, 'lb')).toBe(0);
+    expect(toKg(null as any, 'lb')).toBe(0);
+    expect(toGr(NaN, 'kg')).toBe(0);
   });
 
   it('accepts numeric strings', () => {
-    expect(toLb({ unit: 'kg', value: '1' as any })).toBe(2.2);
-    expect(toGr({ unit: 'kg', value: '0.5' as any })).toBe(500);
+    expect(toLb('1' as any, 'kg')).toBe(2.2);
+    expect(toGr('0.5' as any, 'kg')).toBe(500);
   });
 });
 
@@ -201,11 +201,11 @@ describe('dimension conversions', () => {
     expect(toCm(10, 'cm')).toBe(10);
   });
 
-  it('falls back to 1 for zero or non-numeric values', () => {
-    expect(toIn(0, 'in')).toBe(1);
-    expect(toIn(undefined as any, 'cm')).toBe(0.39);
-    expect(toCm('abc' as any, 'in')).toBe(2.5);
-    expect(toCm(0, 'cm')).toBe(1);
+  it('falls back to 0 for zero or non-numeric values', () => {
+    expect(toIn(0, 'in')).toBe(0);
+    expect(toIn(undefined as any, 'cm')).toBe(0);
+    expect(toCm('abc' as any, 'in')).toBe(0);
+    expect(toCm(0, 'cm')).toBe(0);
   });
 
   it('accepts numeric strings', () => {

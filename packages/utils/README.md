@@ -187,17 +187,17 @@ getRandom(1, 10);                                          // integer in [1, 10]
 formatBytes(2048);                                         // '2.0 KB'
 formatBytes(5 * 1024 * 1024);                              // '5.0 MB'
 
-// weight converters — input is { unit: 'lb' | 'oz' | 'kg' | 'gr', value }
-toLb({ unit: 'kg', value: 1 });                            // 2.2
-toOz({ unit: 'lb', value: 1 });                            // 16
-toKg({ unit: 'oz', value: 16 });                           // 0.454
-toGr({ unit: 'kg', value: 0.5 });                          // 500
-toLb({ unit: 'kg', value: 'abc' as any });                 // 0 (non-numeric → 0)
+// weight converters — (value, unit: 'lb' | 'oz' | 'kg' | 'gr')
+toLb(1, 'kg');                                             // 2.2
+toOz(1, 'lb');                                             // 16
+toKg(16, 'oz');                                            // 0.454
+toGr(0.5, 'kg');                                           // 500
+toLb('abc' as any, 'kg');                                  // 0 (non-numeric → 0)
 
-// dimension converters
+// dimension converters — (value, unit: 'in' | 'cm')
 toIn(2.54, 'cm');                                          // 1
 toCm(1, 'in');                                             // 2.5
-toIn(0, 'in');                                             // 1 (zero/non-numeric → 1)
+toIn(0, 'in');                                             // 0 (zero/non-numeric → 0)
 ```
 
 Options accepted by each formatter:
@@ -210,14 +210,14 @@ Options accepted by each formatter:
 | `percent(n, options?)` | `locale`, `decimals` (exact fraction digits) |
 | `short(n, options?)` | `locale`, `decimals` (max fraction digits, default `1`), `long` (long compact display, default `false`) |
 
-Unit converters for shipping weights and dimensions. Weight functions take a `Weight` object — `{ unit: 'lb' | 'oz' | 'kg' | 'gr', value }` (`Weight` / `WeightUnit` types are exported); missing or non-numeric values fall back to `0`. Dimension functions take `(value, 'in' | 'cm')`; zero or non-numeric values fall back to `1`. Numeric strings are accepted everywhere.
+Unit converters for shipping weights and dimensions. All converters take `(value, unit)` — weight units are `'lb' | 'oz' | 'kg' | 'gr'`, dimension units are `'in' | 'cm'` (`WeightUnit` / `LengthUnit` types are exported). Zero, missing, or non-numeric values fall back to `0`. Numeric strings are accepted everywhere.
 
 | Function | Returns | Rounding |
 | --- | --- | --- |
-| `toLb(weight)` | pounds | 2 dp |
-| `toOz(weight)` | ounces | 2 dp |
-| `toKg(weight)` | kilograms | 3 dp |
-| `toGr(weight)` | grams | 1 dp |
+| `toLb(value, unit)` | pounds | 2 dp |
+| `toOz(value, unit)` | ounces | 2 dp |
+| `toKg(value, unit)` | kilograms | 3 dp |
+| `toGr(value, unit)` | grams | 1 dp |
 | `toIn(value, unit)` | inches | 2 dp |
 | `toCm(value, unit)` | centimeters | 1 dp |
 
