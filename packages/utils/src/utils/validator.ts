@@ -35,7 +35,7 @@ export function isArray(value: any): value is any[] {
 }
 
 export function isNonEmptyArray(value: any): value is any[] {
-  return isArray(value) && value.length > 0;
+  return isArray(value) && (value.length > 0);
 }
 
 export function isBoolean(value: any): value is boolean {
@@ -72,7 +72,7 @@ export function isObjectLike(value: any): value is Record<string, any> {
 }
 
 export function isNonNullObject(value: any): value is Record<string, any> {
-  return isObject(value) && Object.keys(value).length !== 0;
+  return isObject(value) && (Object.keys(value).length > 0);
 }
 
 export function isEmpty(value: any): boolean {
@@ -90,7 +90,7 @@ export function isNotEmpty(value: any): boolean {
 }
 
 export function isFunction(value: any): value is (...args: any[]) => any {
-  return Object.prototype.toString.call(value) === '[object Function]' || isAsyncFunction(value);
+  return (Object.prototype.toString.call(value) === '[object Function]') || isAsyncFunction(value);
 }
 
 export function isAsyncFunction(value: any): value is (...args: any[]) => Promise<any> {
