@@ -14,6 +14,7 @@ pnpm build         # build every package in parallel
 pnpm test          # run vitest in every package
 pnpm test:watch    # watch mode in every package
 pnpm clean         # remove build/ and node_modules/ across packages
+pnpm release       # version, tag and publish to npm (see Publishing)
 ```
 
 Single-package commands use the `--filter` flag:
@@ -731,14 +732,90 @@ Each package has its own `vitest.config.ts` (`node` for utils, `jsdom` for react
 
 ## Publishing
 
-Each package publishes independently:
+One command does the whole release — pick the version, write the CHANGELOG,
+build, test, commit, tag, push:
+
+```bash
+pnpm release
+```
+
+With no arguments it releases **every package that has unreleased commits**, and
+picks each new version automatically from the [Conventional Commits](https://www.conventionalcommits.org/)
+touching that package since its last tag:
+
+| Commits since the last tag | Bump |
+| --- | --- |
+| `feat!:` / `BREAKING CHANGE:` in the body | major (minor while the package is `0.x`) |
+| `feat:` | minor |
+| anything else (`fix:`, `refactor:`, `chore:`, …) | patch |
+| none | package is skipped |
+
+It prints the plan and waits for confirmation before anything is written:
+
+```
+Release plan:
+
+  @byelabel/utils  3.0.1 -> 3.1.0   (minor (from 4 commits))
+  tag: utils-v3.1.0
+    - feat(db): add trimSql
+    - fix(rabbit): reconnect on channel close
+
+Publish to npm? [y/N]
+```
+
+### Targeting a package or version
+
+```bash
+pnpm release utils              # only utils, bump inferred
+pnpm release utils minor        # force the bump level
+pnpm release utils 3.2.0        # force the exact version
+pnpm release all                # both packages, even the unchanged one
+pnpm release:utils              # alias for `pnpm release utils`
+pnpm release:react              # alias for `pnpm release react`
+```
+
+### Flags
+
+| Flag | Effect |
+| --- | --- |
+| `--dry-run` | print the plan and stop — nothing written, built or pushed |
+| `--edit` | open `$EDITOR` on the generated CHANGELOG entry first |
+| `--no-changelog` | skip the CHANGELOG entirely |
+| `--skip-checks` | do not build/test before tagging |
+| `--no-push` | commit and tag locally, push by hand |
+| `-y`, `--yes` | skip the confirmation prompt (implied when not a TTY) |
+
+Start with `pnpm release --dry-run` if you want to see the plan without committing to it.
+
+### What happens after the push
+
+The script pushes `<pkg>-v<version>` (e.g. `utils-v3.1.0`), and
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml) takes it from
+there: install, build, test, then `pnpm publish --access public --provenance` to
+npmjs.com. Auth is **trusted publishing** (OIDC) — there is no `NPM_TOKEN`, so
+each package needs a trusted publisher registered on npmjs.com pointing at
+`repo=byelabel/helpers`, `workflow=publish.yml`. Watch the run at
+[Actions → publish](https://github.com/byelabel/helpers/actions/workflows/publish.yml).
+
+A release can also be triggered straight from the Actions tab
+(`workflow_dispatch`) to re-publish the current version without a new tag.
+
+### Guard rails
+
+The script refuses to run when the working tree is dirty, when you are not on
+`master`/`main`, when the tag already exists, or when the requested version is
+lower than the current one. If `package.json` was bumped by hand and never
+tagged, that version is released as-is rather than bumped again.
+
+### Publishing by hand
+
+Rarely needed — this skips CI, and npm provenance with it:
 
 ```bash
 cd packages/utils && pnpm publish --access public
-cd packages/react && pnpm publish --access public
 ```
 
-`prepublishOnly` runs the build first. `publint` is recommended:
+`prepublishOnly` runs the build first. `publint` is recommended before a release:
 
 ```bash
 pnpx publint packages/utils

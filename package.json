@@ -11,8 +11,10 @@
     "clean": "pnpm -r exec rm -rf build node_modules",
     "test": "pnpm -r run test",
     "test:watch": "pnpm -r --parallel run test:watch",
+    "release": "node scripts/release.mjs",
     "release:utils": "node scripts/release.mjs utils",
     "release:react": "node scripts/release.mjs react",
+    "release:all": "node scripts/release.mjs all",
     "labels:provision": "node scripts/provision-labels.mjs"
   },
   "devDependencies": {
