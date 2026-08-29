@@ -5,6 +5,22 @@ All notable changes to `@byelabel/utils` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-08-29
+
+### Features
+
+- **utils**: add `formatAddress` utilities with tests and export module (984277f)
+
+### Refactors
+
+- **db**: extract and reuse `trimSql` utility, add tests (8013ec9)
+- **db**: extract and reuse `trimSql` utility, add tests (bda9a08)
+
+### Other
+
+- code quality updates (821bf1c)
+
+
 - Signature changes (37ee04f)
 
 - money.format renamed to money.display (0fd92ea)
