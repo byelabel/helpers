@@ -1,6 +1,6 @@
 {
   "name": "@byelabel/utils",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "description": "ByeLabel Utilities",
   "type": "commonjs",
   "main": "build/index.js",
@@ -9,6 +9,10 @@
     ".": {
       "types": "./build/index.d.ts",
       "default": "./build/index.js"
+    },
+    "./address": {
+      "types": "./build/utils/address.d.ts",
+      "default": "./build/utils/address.js"
     },
     "./config": {
       "types": "./build/utils/config.d.ts",
