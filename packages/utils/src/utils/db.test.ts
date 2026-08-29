@@ -1,6 +1,6 @@
 import { isAbsolute } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { checkDBConfig } from './db';
+import { checkDBConfig, trimSql } from './db';
 import { AppError } from './error';
 
 const ENV_KEYS = [
@@ -164,5 +164,32 @@ describe('checkDBConfig', () => {
     const opts = checkDBConfig({ ...baseRequired, foo: 'bar' } as any);
 
     expect((opts as any).foo).toBeUndefined();
+  });
+});
+describe('trimSql', () => {
+  it('trims each line and drops empty ones', () => {
+    const sql = `
+      SELECT *
+
+        FROM "users"
+      WHERE "id" = 1
+    `;
+
+    expect(trimSql(sql)).toBe('SELECT *\nFROM "users"\nWHERE "id" = 1');
+  });
+
+  it('drops whitespace-only lines', () => {
+    expect(trimSql('SELECT 1\n   \n\t\nFROM "t"')).toBe('SELECT 1\nFROM "t"');
+  });
+
+  it('keeps a single line untouched', () => {
+    expect(trimSql('  SELECT NOW()  ')).toBe('SELECT NOW()');
+  });
+
+  it('returns an empty string for empty or missing input', () => {
+    expect(trimSql('')).toBe('');
+    expect(trimSql('   \n  ')).toBe('');
+    expect(trimSql()).toBe('');
+    expect(trimSql(null)).toBe('');
   });
 });

@@ -292,6 +292,22 @@ export async function disconnect(): Promise<void> {
   }
 }
 
+export function trimSql(sql?: string | null): string {
+  if (!isNonEmptyString(sql)) {
+    return '';
+  }
+
+  return (sql as string).split('\n').reduce((arr: string[], line) => {
+    line = line.trim();
+
+    if (isNonEmptyString(line)) {
+      arr.push(line);
+    }
+
+    return arr;
+  }, []).join('\n');
+}
+
 export function escapeString<T>(str: T | string | number, withQuotes: boolean = false): T | string | number {
   if (isNonEmptyString(str) || isNumeric(str)) {
     str = String(str);
@@ -760,18 +776,10 @@ export function getList<T>(params: IGetListParams): Promise<IList<T>> {
       // random alias
       const alias = '_t';
 
-      const selectSql = async (alias: string, offset = 0, limit = 0) => `
+      const selectSql = async (alias: string, offset = 0, limit = 0) => trimSql(`
         ${await sqlBody(alias, true)}
         ${(isNumeric(limit) && Number(limit) > 0) ? `OFFSET ${offset} LIMIT ${limit}` : ''}
-      `.split('\n').reduce((arr: string[], line) => {
-        line = line.trim();
-
-        if (isNonEmptyString(line)) {
-          arr.push(line);
-        }
-
-        return arr;
-      }, []).join('\n');
+      `);
 
       const countSql = async (alias: string, onlyDefaults = true) => sqlBody(alias, false, onlyDefaults);
 
@@ -850,7 +858,7 @@ export function getInfiniteList<T>(params: IGetInfiniteListParams): Promise<IInf
         more: 0
       };
 
-      const withSql = async (limit = 0) => `
+      const withSql = async (limit = 0) => trimSql(`
         WITH "_r" AS (
           ${await sqlBody('_b')}
         ), "${tableName}" AS (
@@ -864,42 +872,18 @@ export function getInfiniteList<T>(params: IGetInfiniteListParams): Promise<IInf
           )` : ''}
           ${(isNumeric(limit) && Number(limit) > 0) ? `LIMIT ${limit}` : ''}
         )
-      `.split('\n').reduce((arr: string[], line) => {
-        line = line.trim();
+      `);
 
-        if (isNonEmptyString(line)) {
-          arr.push(line);
-        }
-
-        return arr;
-      }, []).join('\n');
-
-      const selectSql = async (limit = 0) => `${await withSql(limit)}
+      const selectSql = async (limit = 0) => trimSql(`${await withSql(limit)}
         SELECT *
         FROM "${tableName}"
         ORDER BY "n"
-      `.split('\n').reduce((arr: string[], line) => {
-        line = line.trim();
+      `);
 
-        if (isNonEmptyString(line)) {
-          arr.push(line);
-        }
-
-        return arr;
-      }, []).join('\n');
-
-      const countSql = `${await withSql(0)}
+      const countSql = trimSql(`${await withSql(0)}
         SELECT COUNT(*) AS "total"
         FROM "${tableName}"
-      `.split('\n').reduce((arr: string[], line) => {
-        line = line.trim();
-
-        if (isNonEmptyString(line)) {
-          arr.push(line);
-        }
-
-        return arr;
-      }, []).join('\n');
+      `);
 
       let [{ total }]: any = await sequelize().query(countSql, {
         type: QueryTypes.SELECT,
