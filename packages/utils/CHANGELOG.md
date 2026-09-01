@@ -5,6 +5,12 @@ All notable changes to `@byelabel/utils` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.2] - 2026-09-01
+
+### Fixes
+
+- **rabbit**: guard `deleteQueue`/`ack` calls in `sendMessageForReply` / `sendMessageForReplyStream` timers and reply handlers; when the broker has already closed the channel these threw inside async callbacks, crashing the process with an unhandled rejection instead of rejecting the pending call
+
 ## [3.1.1] - 2026-09-01
 
 ### Fixes

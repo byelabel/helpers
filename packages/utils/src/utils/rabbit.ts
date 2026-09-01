@@ -349,7 +349,7 @@ function receiveStream(message: amqp.Message): Promise<Buffer> {
             const streamHeaders = streamMessage.properties?.headers as IStreamHeader | undefined;
 
             if (streamHeaders && isUUID(headers.id) && (streamMessage.properties?.correlationId === headers.id) && isNumber(streamHeaders.index) && isNumber(headers.length) && (stream.length < headers.length)) {
-              streamChannel?.ack(streamMessage);
+              try { streamChannel?.ack(streamMessage); } catch {}
 
               stream.push({
                 index: streamHeaders.index,
@@ -501,7 +501,7 @@ function receiveStreamAsReadable(firstMessage: amqp.Message): Readable {
 
       if (!h || m.properties.correlationId !== headers.id) return;
 
-      streamChannel?.ack(m);
+      try { streamChannel?.ack(m); } catch {}
 
       if (m.content.byteLength) readable.push(m.content);
 
@@ -712,7 +712,9 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
       });
 
       const timer = setTimeout(async () => {
-        await channel.deleteQueue(q.queue);
+        // the channel may already be gone (e.g. closed by the broker); the
+        // timeout must reject, never crash the process
+        await channel.deleteQueue(q.queue).catch(() => {});
 
         const error = new AppError(`No response from service (${name})`, 'NO_RESPONSE_FROM_SERVICE', {
           name
@@ -731,9 +733,10 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
       await channel.consume(q.queue, async (message) => {
         if (message && (message.properties?.correlationId === correlationId)) {
           clearTimeout(timer);
-          channel.ack(message);
 
-          await channel.deleteQueue(q.queue);
+          try { channel.ack(message); } catch {}
+
+          await channel.deleteQueue(q.queue).catch(() => {});
 
           try {
             message.content = await receiveStream(message);
@@ -840,7 +843,8 @@ export function sendMessageForReplyStream(name: string, data?: any, options?: IS
 
         settled = true;
         clearTimeout(timer);
-        channel.ack(message);
+
+        try { channel.ack(message); } catch {}
 
         // only the first chunk lands here; subsequent chunks (if any) flow through a producer-owned queue
         if (consumerTag) await channel.cancel(consumerTag).catch(() => {});
