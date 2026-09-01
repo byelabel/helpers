@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixes
 
+- **utils**: guard `ack` and `deleteQueue` calls to prevent crashes on closed channels in rabbit timers and reply handlers (1c4ec92)
+
+
+## [3.1.2] - 2026-09-01
+
+### Fixes
+
 - **rabbit**: guard `deleteQueue`/`ack` calls in `sendMessageForReply` / `sendMessageForReplyStream` timers and reply handlers; when the broker has already closed the channel these threw inside async callbacks, crashing the process with an unhandled rejection instead of rejecting the pending call
 
 ## [3.1.1] - 2026-09-01
