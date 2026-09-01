@@ -108,11 +108,14 @@ const fakeChannel: any = {
   on: () => fakeChannel,
   assertExchange: () => Promise.resolve({ exchange: '' }),
   bindQueue: () => Promise.resolve(),
-  publish: () => true
+  publish: () => true,
+  close: () => Promise.resolve()
 };
 
 const fakeConnection: any = {
   createConfirmChannel: () => Promise.resolve(fakeChannel),
+  // stream chunk queues are consumed on dedicated plain channels
+  createChannel: () => Promise.resolve(fakeChannel),
   close: () => Promise.resolve(),
   on: () => fakeConnection
 };

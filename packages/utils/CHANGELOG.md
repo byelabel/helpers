@@ -5,6 +5,14 @@ All notable changes to `@byelabel/utils` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-09-01
+
+### Fixes
+
+- **rabbit**: consume stream chunk queues on a dedicated channel so a missing or expired chunk queue (404) no longer kills the shared channel and poison-loops the requeued first chunk; the orphaned message is now dropped with a `STREAM_CHUNKS_LOST` error
+- **rabbit**: add a timeout to stream reassembly (`STREAM_TIMEOUT`) so an incomplete chunk set cannot hold a delivery unacknowledged until the broker's delivery acknowledgement timeout closes the channel
+- **rabbit**: fail `sendMessageForReply` / `sendMessageForReplyStream` with an error when a chunked reply cannot be assembled instead of leaving the caller hanging
+
 ## [3.1.0] - 2026-08-29
 
 ### Features

@@ -286,11 +286,53 @@ export function disconnect(): Promise<void> {
 
 function receiveStream(message: amqp.Message): Promise<Buffer> {
   return new Promise(async (resolve, reject) => {
+    let streamChannel: amqp.Channel | null = null;
+
     try {
-      const { channel } = await connect();
+      const { connection } = await connect();
       const headers = message?.properties?.headers as IStreamHeader | undefined;
 
       if (headers && isNumber(headers.index) && (headers.index === 0)) {
+        // consume the chunk queue on a dedicated channel so a missing or
+        // expired queue (404) cannot kill the shared channel; the caller can
+        // then ack & drop the orphaned first chunk instead of the broker
+        // redelivering it forever
+        streamChannel = await connection.createChannel();
+
+        // failures surface through the returned promise, not the logs
+        streamChannel.on('error', () => {});
+
+        let settled = false;
+        let timer: NodeJS.Timeout | null = null;
+
+        const cleanup = async (error?: Error) => {
+          if (settled) return;
+          settled = true;
+
+          if (timer) {
+            clearTimeout(timer);
+          }
+
+          const ch = streamChannel;
+          streamChannel = null;
+
+          if (ch) {
+            await ch.deleteQueue(headers.queue).catch(() => {});
+            await ch.close().catch(() => {});
+          }
+
+          if (error) {
+            reject(error);
+          }
+        };
+
+        // if the remaining chunks never arrive, give up so the caller can
+        // drop the message; without this the delivery would stay
+        // unacknowledged until the broker kills the channel
+        timer = setTimeout(() => {
+          cleanup(new AppError(`Stream chunks not received (${headers.queue})`, 'STREAM_TIMEOUT')).catch(() => {});
+        }, (config.timeout || 30) * 1000);
+
         // stream content
         const stream: IStream[] = [];
 
@@ -300,33 +342,42 @@ function receiveStream(message: amqp.Message): Promise<Buffer> {
           content: message.content
         });
 
-        const { consumerTag } = await channel.consume(headers.queue, async (streamMessage) => {
-          if (!streamMessage) return;
+        try {
+          await streamChannel.consume(headers.queue, async (streamMessage) => {
+            if (!streamMessage || settled) return;
 
-          const streamHeaders = streamMessage.properties?.headers as IStreamHeader | undefined;
+            const streamHeaders = streamMessage.properties?.headers as IStreamHeader | undefined;
 
-          if (streamHeaders && isUUID(headers.id) && (streamMessage.properties?.correlationId === headers.id) && isNumber(streamHeaders.index) && isNumber(headers.length) && (stream.length < headers.length)) {
-            channel.ack(streamMessage);
+            if (streamHeaders && isUUID(headers.id) && (streamMessage.properties?.correlationId === headers.id) && isNumber(streamHeaders.index) && isNumber(headers.length) && (stream.length < headers.length)) {
+              streamChannel?.ack(streamMessage);
 
-            stream.push({
-              index: streamHeaders.index,
-              content: streamMessage.content
-            });
+              stream.push({
+                index: streamHeaders.index,
+                content: streamMessage.content
+              });
 
-            if (stream.length === headers.length) {
-              resolve(Buffer.concat(stream.sort((a, b) => a.index - b.index).map(buffer => buffer.content)));
+              if (stream.length === headers.length) {
+                resolve(Buffer.concat(stream.sort((a, b) => a.index - b.index).map(buffer => buffer.content)));
 
-              await channel.cancel(consumerTag).catch(() => {});
-              await channel.deleteQueue(headers.queue).catch(() => {});
+                await cleanup();
+              }
             }
-          }
-        }, {
-          noAck: false
-        });
+          }, {
+            noAck: false
+          });
+        } catch (e) {
+          // the chunk queue is gone (expired or lost with its channel); the
+          // remaining chunks are unrecoverable, so the message must be dropped
+          await cleanup(new AppError(`Stream chunks lost (${headers.queue})`, 'STREAM_CHUNKS_LOST'));
+        }
       } else {
         resolve(message.content);
       }
     } catch (e) {
+      if (streamChannel) {
+        streamChannel.close().catch(() => {});
+      }
+
       reject(e);
     }
   });
@@ -409,15 +460,20 @@ function sendReadableStream(replyQueue: string, source: Readable, properties: am
   });
 }
 
-function receiveStreamAsReadable(firstMessage: amqp.Message, ch: amqp.ConfirmChannel): Readable {
+function receiveStreamAsReadable(firstMessage: amqp.Message): Readable {
   const headers = firstMessage.properties.headers as IStreamHeader;
   const readable = new Readable({ read() {} });
 
-  let consumerTag: string | null = null;
+  let streamChannel: amqp.Channel | null = null;
 
   const cleanup = async () => {
-    if (consumerTag) await ch.cancel(consumerTag).catch(() => {});
-    await ch.deleteQueue(headers.queue).catch(() => {});
+    const ch = streamChannel;
+    streamChannel = null;
+
+    if (ch) {
+      await ch.deleteQueue(headers.queue).catch(() => {});
+      await ch.close().catch(() => {});
+    }
   };
 
   if (firstMessage.content.byteLength) readable.push(firstMessage.content);
@@ -425,29 +481,39 @@ function receiveStreamAsReadable(firstMessage: amqp.Message, ch: amqp.ConfirmCha
   if (headers.final) {
     if (headers.error) readable.destroy(new Error(headers.error));
     else readable.push(null);
-    cleanup().catch(() => {});
     return readable;
   }
 
-  ch.consume(headers.queue, async (m) => {
-    if (!m) return;
+  (async () => {
+    const { connection } = await connect();
 
-    const h = m.properties.headers as IStreamHeader | undefined;
+    // consume the chunk queue on a dedicated channel so a missing or expired
+    // queue (404) cannot kill the shared channel
+    streamChannel = await connection.createChannel();
 
-    if (!h || m.properties.correlationId !== headers.id) return;
+    // failures surface through the readable, not the logs
+    streamChannel.on('error', () => {});
 
-    ch.ack(m);
+    await streamChannel.consume(headers.queue, async (m) => {
+      if (!m) return;
 
-    if (m.content.byteLength) readable.push(m.content);
+      const h = m.properties.headers as IStreamHeader | undefined;
 
-    if (h.final) {
-      if (h.error) readable.destroy(new Error(h.error));
-      else readable.push(null);
-      await cleanup();
-    }
-  }, { noAck: false }).then(({ consumerTag: tag }) => {
-    consumerTag = tag;
-  }).catch((e) => {
+      if (!h || m.properties.correlationId !== headers.id) return;
+
+      streamChannel?.ack(m);
+
+      if (m.content.byteLength) readable.push(m.content);
+
+      if (h.final) {
+        if (h.error) readable.destroy(new Error(h.error));
+        else readable.push(null);
+        await cleanup();
+      }
+    }, { noAck: false });
+  })().catch(async (e) => {
+    await cleanup();
+
     readable.destroy(e as Error);
   });
 
@@ -669,7 +735,23 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
 
           await channel.deleteQueue(q.queue);
 
-          message.content = await receiveStream(message);
+          try {
+            message.content = await receiveStream(message);
+          } catch (e) {
+            // chunked reply could not be assembled; fail the call instead of
+            // leaving the caller hanging (the timer is already cleared)
+            const error = new AppError((e as Error)?.message || `Reply not received (${name})`, (e as any)?.code || 'STREAM_CHUNKS_LOST', {
+              name
+            });
+
+            if (callback && isFunction(callback)) {
+              callback(error);
+            }
+
+            reject(error);
+
+            return;
+          }
 
           let content: any = message.content?.toString?.();
 
@@ -769,11 +851,18 @@ export function sendMessageForReplyStream(name: string, data?: any, options?: IS
 
         if (headers?.streaming) {
           // open-ended streaming reply — chunks arrive on headers.queue as they're produced
-          resolve(receiveStreamAsReadable(message, channel));
+          resolve(receiveStreamAsReadable(message));
         } else if (headers && isNumber(headers.length) && headers.length > 0) {
           // legacy buffered multi-chunk reply — assemble then wrap as Readable
-          const buf = await receiveStream(message);
-          resolve(Readable.from(buf));
+          try {
+            const buf = await receiveStream(message);
+
+            resolve(Readable.from(buf));
+          } catch (e) {
+            reject(new AppError((e as Error)?.message || `Reply not received (${name})`, (e as any)?.code || 'STREAM_CHUNKS_LOST', {
+              name
+            }));
+          }
         } else {
           // single small reply
           resolve(Readable.from(message.content));
