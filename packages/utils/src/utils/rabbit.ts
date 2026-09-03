@@ -49,8 +49,6 @@ export type IRabbitOptions = {
   keepAliveDelay?: number
 };
 
-type IPendingReply = { onUndelivered: Function, result: any, returned: boolean };
-
 const processId = process.pid;
 
 const connection: { [key: number]: amqp.ChannelModel | null } = {
@@ -65,7 +63,6 @@ const connecting: { [key: number]: Promise<{ connection: amqp.ChannelModel, chan
   [processId]: null
 };
 
-const pendingReplies: { [correlationId: string]: IPendingReply } = {};
 
 // RabbitMQ direct reply-to: RPC replies arrive on the `amq.rabbitmq.reply-to`
 // pseudo-queue, consumed in no-ack mode on the same channel that publishes the
@@ -236,19 +233,8 @@ export function connect(options?: IRabbitOptions): Promise<{
             // reset
             channel[processId] = null;
 
-            // confirms won't fire on a dead channel; drop pending entries
-            for (const id of Object.keys(pendingReplies)) {
-              delete pendingReplies[id];
-            }
-
             // replies to our own calls cannot arrive any more either
             failReplyWaiters(new AppError('RabbitMQ channel closed before the reply arrived', 'CHANNEL_CLOSED'));
-          }).on('return', (msg) => {
-            const id = msg.properties?.correlationId;
-
-            if (id && pendingReplies[id]) {
-              pendingReplies[id].returned = true;
-            }
           });
         }
 
@@ -689,46 +675,17 @@ export function receiveMessage(queue: string, callback?: Function): Promise<void
 
               // return message as buffer
               const returnMessage = Buffer.from(JSON.stringify({ data: result }));
-              const onUndelivered = isFunction(events?.onUndelivered) ? events.onUndelivered : null;
-
-              // Track this reply so the channel-level 'return' listener can flag it as undeliverable.
-              // Cleanup happens in finalize() (after the publisher confirms) or when the channel closes.
-              if (correlationId && onUndelivered) {
-                pendingReplies[correlationId] = { onUndelivered, result, returned: false };
-              }
-
-              const finalize = () => {
-                if (!correlationId) return;
-
-                const entry = pendingReplies[correlationId];
-
-                if (entry?.returned && isFunction(entry.onUndelivered)) {
-                  entry.onUndelivered(entry.result);
-                }
-
-                delete pendingReplies[correlationId];
-              };
 
               if (returnMessage.byteLength > (config.messageMaxSize as number)) {
                 await sendStream(message.properties.replyTo, returnMessage, {
                   replyTo: message.properties.replyTo,
                   correlationId,
-                  persistent: true,
-                  mandatory: true
+                  persistent: true
                 });
-
-                // For streams, mandatory only applies to chunk 0 (which carries `properties`).
-                // waitForConfirms drains pending publishes so any 'return' has fired by now.
-                await channel.waitForConfirms().catch(() => {});
-
-                finalize();
               } else {
                 channel.sendToQueue(message.properties.replyTo, returnMessage, {
                   correlationId,
-                  persistent: true,
-                  mandatory: true
-                }, () => {
-                  finalize();
+                  persistent: true
                 });
               }
             }
