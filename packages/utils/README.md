@@ -342,7 +342,7 @@ await db.disconnect();
 
 ### `rabbit`
 
-RabbitMQ client with auto-reconnect (bounded retry-with-backoff), AMQP heartbeats, message streaming for payloads larger than `messageMaxSize` (default 5 MB), request/response over reply queues, and open-ended `Readable` replies via `sendMessageForReplyStream` for piping large payloads to clients without buffering.
+RabbitMQ client with auto-reconnect (bounded retry-with-backoff), AMQP heartbeats, message streaming for payloads larger than `messageMaxSize` (default 5 MB), request/response over RabbitMQ [direct reply-to](https://www.rabbitmq.com/docs/direct-reply-to) (no reply queue is declared per call), and open-ended `Readable` replies via `sendMessageForReplyStream` for piping large payloads to clients without buffering.
 
 ```ts
 import { rabbit } from '@byelabel/utils';

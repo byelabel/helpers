@@ -11,8 +11,17 @@ class FakeBroker {
   qCounter = 0;
 
   reset() {
+    // the direct reply-to consumer belongs to the channel, which survives
+    // between tests just like a real channel would
+    const replyConsumer = this.consumers.get('amq.rabbitmq.reply-to');
+
     this.queues.clear();
     this.consumers.clear();
+
+    if (replyConsumer) {
+      this.consumers.set('amq.rabbitmq.reply-to', { ...replyConsumer, deliveryQueue: [], busy: false });
+    }
+
     this.tagCounter = 0;
     this.qCounter = 0;
   }

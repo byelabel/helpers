@@ -67,6 +67,24 @@ const connecting: { [key: number]: Promise<{ connection: amqp.ChannelModel, chan
 
 const pendingReplies: { [correlationId: string]: IPendingReply } = {};
 
+// RabbitMQ direct reply-to: RPC replies arrive on the `amq.rabbitmq.reply-to`
+// pseudo-queue, consumed in no-ack mode on the same channel that publishes the
+// request. No queue is declared per call, so nothing can leak on the broker
+// when a caller times out, crashes or loses its channel.
+// https://www.rabbitmq.com/docs/direct-reply-to
+const DIRECT_REPLY_TO = 'amq.rabbitmq.reply-to';
+
+type IReplyWaiter = {
+  onReply: (message: amqp.ConsumeMessage) => void,
+  onError: (error: Error) => void
+};
+
+// in-flight RPC calls of this process, by correlation id
+const replyWaiters: { [correlationId: string]: IReplyWaiter } = {};
+
+// one reply consumer per channel; a new channel after a reconnect gets its own
+const replyConsumers = new WeakMap<amqp.Channel, Promise<void>>();
+
 let config: IRabbitOptions = {};
 
 const optionsSchema = joi.object<IRabbitOptions>({
@@ -222,6 +240,9 @@ export function connect(options?: IRabbitOptions): Promise<{
             for (const id of Object.keys(pendingReplies)) {
               delete pendingReplies[id];
             }
+
+            // replies to our own calls cannot arrive any more either
+            failReplyWaiters(new AppError('RabbitMQ channel closed before the reply arrived', 'CHANNEL_CLOSED'));
           }).on('return', (msg) => {
             const id = msg.properties?.correlationId;
 
@@ -282,6 +303,66 @@ export function disconnect(): Promise<void> {
       reject(new AppError((e as Error).message, 'RABBITMQ_ERROR'));
     }
   });
+}
+
+/**
+ * Attach the direct reply-to consumer to the channel (once). Must complete
+ * before a request that expects a reply is published on that channel.
+ */
+function ensureReplyConsumer(ch: amqp.ConfirmChannel): Promise<void> {
+  let ready = replyConsumers.get(ch);
+
+  if (!ready) {
+    ready = ch.consume(DIRECT_REPLY_TO, (message) => {
+      const correlationId = message?.properties?.correlationId;
+      const waiter = correlationId ? replyWaiters[correlationId] : null;
+
+      // a reply that arrives after its call timed out has no waiter and is dropped
+      if (message && waiter) {
+        waiter.onReply(message);
+      }
+    }, {
+      noAck: true
+    }).then(() => {}).catch(e => {
+      replyConsumers.delete(ch);
+
+      throw e;
+    });
+
+    replyConsumers.set(ch, ready);
+  }
+
+  return ready;
+}
+
+/**
+ * Fail every in-flight RPC call; replies cannot arrive on a closed channel.
+ */
+function failReplyWaiters(error: Error): void {
+  for (const correlationId of Object.keys(replyWaiters)) {
+    const waiter = replyWaiters[correlationId];
+
+    delete replyWaiters[correlationId];
+
+    try { waiter.onError(error); } catch {}
+  }
+}
+
+/**
+ * Split `account.find` into the queue (`account`) and the pattern (`find`).
+ */
+function parseTarget(name: string): { queue: string, pattern: string | null } {
+  let queue = name, pattern: string | null = null;
+
+  if (queue.lastIndexOf('.') > -1) {
+    pattern = queue.substring(queue.indexOf('.') + 1);
+    queue = queue.substring(0, queue.indexOf('.'));
+  }
+
+  return {
+    queue: `${config.namespace}${queue}`,
+    pattern
+  };
 }
 
 function receiveStream(message: amqp.Message): Promise<Buffer> {
@@ -479,8 +560,14 @@ function receiveStreamAsReadable(firstMessage: amqp.Message): Readable {
   if (firstMessage.content.byteLength) readable.push(firstMessage.content);
 
   if (headers.final) {
-    if (headers.error) readable.destroy(new Error(headers.error));
-    else readable.push(null);
+    if (headers.error) {
+      // the caller has not received the readable yet; let it attach its
+      // listeners before the error is emitted
+      setImmediate(() => readable.destroy(new Error(headers.error)));
+    } else {
+      readable.push(null);
+    }
+
     return readable;
   }
 
@@ -699,50 +786,59 @@ export function sendMessage(name: string, data?: any, options?: ISendMessageOpti
 
 export function sendMessageForReply(name: string, data?: any, callback?: Function, options?: ISendMessageOptions): Promise<any> {
   return new Promise(async (resolve, reject) => {
+    const correlationId = uuid();
+
+    let settled = false;
+    let timer: NodeJS.Timeout | null = null;
+
+    const settle = () => {
+      if (settled) return false;
+
+      settled = true;
+
+      if (timer) {
+        clearTimeout(timer);
+      }
+
+      delete replyWaiters[correlationId];
+
+      return true;
+    };
+
+    const fail = (error: Error) => {
+      if (!settle()) return;
+
+      if (callback && isFunction(callback)) {
+        callback(error);
+      }
+
+      reject(error);
+    };
+
     try {
       const { channel } = await connect();
 
       const expires = (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 60)) * 1000;
 
-      // autoDelete: dies when the consumer detaches, expires: broker-side TTL backstop.
-      const q = await channel.assertQueue('', {
-        durable: false,
-        autoDelete: true,
-        expires
-      });
+      // the reply consumer has to exist before the request goes out
+      await ensureReplyConsumer(channel);
 
-      const timer = setTimeout(async () => {
-        // the channel may already be gone (e.g. closed by the broker); the
-        // timeout must reject, never crash the process
-        await channel.deleteQueue(q.queue).catch(() => {});
-
-        const error = new AppError(`No response from service (${name})`, 'NO_RESPONSE_FROM_SERVICE', {
+      timer = setTimeout(() => {
+        fail(new AppError(`No response from service (${name})`, 'NO_RESPONSE_FROM_SERVICE', {
           name
-        });
-
-        if (callback && isFunction(callback)) {
-          callback(error);
-        }
-
-        reject(error);
+        }));
       }, expires);
 
-      // check to compare incoming message
-      const correlationId = uuid();
-
-      await channel.consume(q.queue, async (message) => {
-        if (message && (message.properties?.correlationId === correlationId)) {
-          clearTimeout(timer);
-
-          try { channel.ack(message); } catch {}
-
-          await channel.deleteQueue(q.queue).catch(() => {});
+      replyWaiters[correlationId] = {
+        onError: fail,
+        onReply: async (message) => {
+          if (!settle()) return;
 
           try {
             message.content = await receiveStream(message);
           } catch (e) {
             // chunked reply could not be assembled; fail the call instead of
-            // leaving the caller hanging (the timer is already cleared)
+            // leaving the caller hanging
             const error = new AppError((e as Error)?.message || `Reply not received (${name})`, (e as any)?.code || 'STREAM_CHUNKS_LOST', {
               name
             });
@@ -770,135 +866,113 @@ export function sendMessageForReply(name: string, data?: any, callback?: Functio
 
           resolve(content?.data);
         }
-      }, {
-        noAck: false
-      });
+      };
 
-      let queue = name, pattern: string | null = null;
-
-      if (queue.lastIndexOf('.') > -1) {
-        pattern = queue.substring(queue.indexOf('.') + 1);
-        queue = queue.substring(0, queue.indexOf('.'));
-      }
-
-      queue = `${config.namespace}${queue}`;
+      const { queue, pattern } = parseTarget(name);
 
       const message = Buffer.from(JSON.stringify({ pattern, data }));
 
       if (message.byteLength > (config.messageMaxSize as number)) {
         await sendStream(queue, message, {
           correlationId,
-          replyTo: q.queue
+          replyTo: DIRECT_REPLY_TO
         }, options);
       } else {
         channel.sendToQueue(queue, message, {
           correlationId,
-          replyTo: q.queue
+          replyTo: DIRECT_REPLY_TO
         });
       }
     } catch (e) {
-      if (callback && isFunction(callback)) {
-        callback(e);
-      }
-
-      reject(e);
+      fail(e as Error);
     }
   });
 }
 
 export function sendMessageForReplyStream(name: string, data?: any, options?: ISendMessageOptions): Promise<Readable> {
   return new Promise(async (resolve, reject) => {
+    const correlationId = uuid();
+
+    let settled = false;
+    let timer: NodeJS.Timeout | null = null;
+
+    const settle = () => {
+      if (settled) return false;
+
+      settled = true;
+
+      if (timer) {
+        clearTimeout(timer);
+      }
+
+      delete replyWaiters[correlationId];
+
+      return true;
+    };
+
+    const fail = (error: Error) => {
+      if (settle()) {
+        reject(error);
+      }
+    };
+
     try {
       const { channel } = await connect();
 
       const expires = (isNumeric(options?.timeout) ? +(options!.timeout as number) : (config.timeout || 60)) * 1000;
 
-      const q = await channel.assertQueue('', {
-        durable: false,
-        autoDelete: true,
-        expires
-      });
+      await ensureReplyConsumer(channel);
 
-      const correlationId = uuid();
-
-      let settled = false;
-      let consumerTag: string | null = null;
-
-      const timer = setTimeout(async () => {
-        if (settled) return;
-
-        settled = true;
-
-        if (consumerTag) await channel.cancel(consumerTag).catch(() => {});
-
-        await channel.deleteQueue(q.queue).catch(() => {});
-
-        reject(new AppError(`No response from service (${name})`, 'NO_RESPONSE_FROM_SERVICE', { name }));
+      timer = setTimeout(() => {
+        fail(new AppError(`No response from service (${name})`, 'NO_RESPONSE_FROM_SERVICE', { name }));
       }, expires);
 
-      const consume = await channel.consume(q.queue, async (message) => {
-        if (!message || message.properties?.correlationId !== correlationId) return;
+      replyWaiters[correlationId] = {
+        onError: fail,
+        onReply: async (message) => {
+          if (!settle()) return;
 
-        if (settled) return;
+          // only the first chunk lands here; subsequent chunks (if any) flow through a producer-owned queue
+          const headers = message.properties?.headers as IStreamHeader | undefined;
 
-        settled = true;
-        clearTimeout(timer);
+          if (headers?.streaming) {
+            // open-ended streaming reply — chunks arrive on headers.queue as they're produced
+            resolve(receiveStreamAsReadable(message));
+          } else if (headers && isNumber(headers.length) && headers.length > 0) {
+            // buffered multi-chunk reply — assemble then wrap as Readable
+            try {
+              const buf = await receiveStream(message);
 
-        try { channel.ack(message); } catch {}
-
-        // only the first chunk lands here; subsequent chunks (if any) flow through a producer-owned queue
-        if (consumerTag) await channel.cancel(consumerTag).catch(() => {});
-
-        await channel.deleteQueue(q.queue).catch(() => {});
-
-        const headers = message.properties?.headers as IStreamHeader | undefined;
-
-        if (headers?.streaming) {
-          // open-ended streaming reply — chunks arrive on headers.queue as they're produced
-          resolve(receiveStreamAsReadable(message));
-        } else if (headers && isNumber(headers.length) && headers.length > 0) {
-          // legacy buffered multi-chunk reply — assemble then wrap as Readable
-          try {
-            const buf = await receiveStream(message);
-
-            resolve(Readable.from(buf));
-          } catch (e) {
-            reject(new AppError((e as Error)?.message || `Reply not received (${name})`, (e as any)?.code || 'STREAM_CHUNKS_LOST', {
-              name
-            }));
+              resolve(Readable.from(buf));
+            } catch (e) {
+              reject(new AppError((e as Error)?.message || `Reply not received (${name})`, (e as any)?.code || 'STREAM_CHUNKS_LOST', {
+                name
+              }));
+            }
+          } else {
+            // single small reply
+            resolve(Readable.from(message.content));
           }
-        } else {
-          // single small reply
-          resolve(Readable.from(message.content));
         }
-      }, { noAck: false });
+      };
 
-      consumerTag = consume.consumerTag;
-
-      let queue = name, pattern: string | null = null;
-
-      if (queue.lastIndexOf('.') > -1) {
-        pattern = queue.substring(queue.indexOf('.') + 1);
-        queue = queue.substring(0, queue.indexOf('.'));
-      }
-
-      queue = `${config.namespace}${queue}`;
+      const { queue, pattern } = parseTarget(name);
 
       const message = Buffer.from(JSON.stringify({ pattern, data }));
 
       if (message.byteLength > (config.messageMaxSize as number)) {
         await sendStream(queue, message, {
           correlationId,
-          replyTo: q.queue
+          replyTo: DIRECT_REPLY_TO
         }, options);
       } else {
         channel.sendToQueue(queue, message, {
           correlationId,
-          replyTo: q.queue
+          replyTo: DIRECT_REPLY_TO
         });
       }
     } catch (e) {
-      reject(e);
+      fail(e as Error);
     }
   });
 }
