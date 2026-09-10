@@ -46,16 +46,17 @@ export function checkRedisConfig(options?: IRedisOptions): IRedisOptions {
   return value;
 }
 
-function createURI(host: string, port: string | number, user: string, pass: string, db?: string | number) {
+export function createURI(host: string, port: string | number, user?: string, pass?: string, db?: string | number) {
   const url = ['redis://'];
 
-  const auth = [
-    isNonEmptyString(user) ? user : '',
-    isNonEmptyString(pass) ? pass : ''
-  ].filter(str => str.length);
+  const username = isNonEmptyString(user) ? encodeURIComponent(user) : '';
+  const password = isNonEmptyString(pass) ? encodeURIComponent(pass) : '';
 
-  if (auth.length) {
-    url.push(`${auth.join(':')}@`);
+  // `user:pass@`, `user@` or `:pass@` - the leading colon marks a password-only auth
+  if (password) {
+    url.push(`${username}:${password}@`);
+  } else if (username) {
+    url.push(`${username}@`);
   }
 
   url.push(`${host}:${+port}`);

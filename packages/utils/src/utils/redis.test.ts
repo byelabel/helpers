@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AppError } from './error';
-import { checkRedisConfig } from './redis';
+import { checkRedisConfig, createURI } from './redis';
 
 const ENV_KEYS = ['REDIS_HOST', 'REDIS_PORT', 'REDIS_USER', 'REDIS_PASS', 'REDIS_DB', 'REDIS_FLUSH_DB'] as const;
 
@@ -90,5 +90,41 @@ describe('checkRedisConfig', () => {
     process.env.REDIS_PORT = 'abc';
 
     expect(() => checkRedisConfig()).toThrow(AppError);
+  });
+});
+
+describe('createURI', () => {
+  it('builds a plain URI without auth', () => {
+    expect(createURI('localhost', 6379)).toBe('redis://localhost:6379');
+    expect(createURI('localhost', '6379', '', '')).toBe('redis://localhost:6379');
+  });
+
+  it('appends the db number when numeric', () => {
+    expect(createURI('localhost', 6379, undefined, undefined, 2)).toBe('redis://localhost:6379/2');
+    expect(createURI('localhost', 6379, undefined, undefined, '3')).toBe('redis://localhost:6379/3');
+    expect(createURI('localhost', 6379, undefined, undefined, 'abc')).toBe('redis://localhost:6379');
+  });
+
+  it('includes user and password', () => {
+    expect(createURI('localhost', 6379, 'admin', 'secret')).toBe('redis://admin:secret@localhost:6379');
+  });
+
+  it('uses a leading colon when only a password is set', () => {
+    expect(createURI('localhost', 6379, '', 'secret')).toBe('redis://:secret@localhost:6379');
+    expect(createURI('localhost', 6379, undefined, 'secret')).toBe('redis://:secret@localhost:6379');
+  });
+
+  it('includes only the user when no password is set', () => {
+    expect(createURI('localhost', 6379, 'admin')).toBe('redis://admin@localhost:6379');
+  });
+
+  it('url-encodes special characters in credentials', () => {
+    expect(createURI('localhost', 6379, 'us@er', 'p@ss/w:rd#?')).toBe('redis://us%40er:p%40ss%2Fw%3Ard%23%3F@localhost:6379');
+
+    const url = new URL(createURI('localhost', 6379, '', 'p@ss/w:rd#?'));
+
+    expect(url.username).toBe('');
+    expect(decodeURIComponent(url.password)).toBe('p@ss/w:rd#?');
+    expect(url.hostname).toBe('localhost');
   });
 });
