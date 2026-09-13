@@ -91,7 +91,7 @@ export function logError(name: string, error: Error, args?: any, show: boolean =
     try {
       const file = writeToFile(errorString, 'error');
 
-      if ((process.env.SEND_LOGS === 'true') && isEmail(process.env.ADMIN_EMAIL)) {
+      if ((process.env.SEND_LOGS === 'true')) {
         const lines: string[] = [];
         const rl = createInterface(createReadStream(file.fullPath));
 

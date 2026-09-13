@@ -10,6 +10,7 @@ export * from './utils/log';
 export * from './utils/money';
 export * from './utils/number';
 export * from './utils/output';
+export * from './utils/string';
 export * from './utils/validator';
 
 export * as number from './utils/number';

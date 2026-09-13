@@ -74,6 +74,10 @@
       "types": "./build/utils/redis.d.ts",
       "default": "./build/utils/redis.js"
     },
+    "./string": {
+      "types": "./build/utils/string.d.ts",
+      "default": "./build/utils/string.js"
+    },
     "./validator": {
       "types": "./build/utils/validator.d.ts",
       "default": "./build/utils/validator.js"
