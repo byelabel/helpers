@@ -858,52 +858,102 @@ export function getInfiniteList<T>(params: IGetInfiniteListParams): Promise<IInf
         more: 0
       };
 
-      const withSql = async (limit = 0) => trimSql(`
+      const logging = debug ? {
+        logging: (sql: string) => logInfo(sql, true).catch(() => {})
+      } : {};
+
+      const hasLastId = usePid ? isNumeric(last_id) : isUUID(last_id);
+
+      /**
+       * The position ("n") of "last_id" is looked up on its own, before the page. Inlined as a
+       * subquery of the page it made "_r" referenced twice, so Postgres materialized the whole
+       * numbered result — every row with every column — on each page after the first, which
+       * took tens of seconds on a large table.
+       *
+       * The lookup itself is bounded: with only "id = x" to go on, the planner expects to read
+       * everything and picks a full sort over the index. An inner LIMIT makes it walk the
+       * index in order and stop, as the first page does, so the window widens only when the
+       * row is deeper than that.
+       */
+      let after = 0;
+
+      if (hasLastId) {
+        let position: number | null = null;
+
+        for (const window of [1000, 10000, 100000, 0]) {
+          const [row]: any = await sequelize().query(trimSql(`
+            WITH "_r" AS (
+              ${await sqlBody('_b')}
+            ), "_w" AS (
+              SELECT "_s1"."n", "_s1"."${usePid ? 'p' : ''}id"
+              FROM "_r" AS "_s1"
+              ${window ? `LIMIT ${window}` : ''}
+            )
+            SELECT "_w"."n"
+            FROM "_w"
+            WHERE "_w"."${usePid ? 'p' : ''}id" = '${last_id}'
+            LIMIT 1
+          `), {
+            type: QueryTypes.SELECT,
+            raw: true,
+            replacements,
+            ...logging
+          });
+
+          if (row) {
+            position = Number(row.n);
+
+            break;
+          }
+        }
+
+        // "last_id" is no longer in the result (deleted or filtered out): nothing follows it
+        if (position === null) {
+          return resolve(payload);
+        }
+
+        after = position;
+      }
+
+      const selectSql = async (limit = 0) => trimSql(`
         WITH "_r" AS (
           ${await sqlBody('_b')}
         ), "${tableName}" AS (
           SELECT "_s0".*
           FROM "_r" AS "_s0"
-          ${(usePid ? isNumeric(last_id) : isUUID(last_id)) ? `
-          WHERE "_s0"."n" > (
-            SELECT "_s1"."n"
-            FROM "_r" AS "_s1"
-            WHERE "_s1"."${usePid ? 'p' : ''}id" = '${last_id}'
-          )` : ''}
+          ${hasLastId ? `WHERE "_s0"."n" > ${after}` : ''}
           ${(isNumeric(limit) && Number(limit) > 0) ? `LIMIT ${limit}` : ''}
         )
-      `);
-
-      const selectSql = async (limit = 0) => trimSql(`${await withSql(limit)}
         SELECT *
         FROM "${tableName}"
         ORDER BY "n"
       `);
 
-      const countSql = trimSql(`${await withSql(0)}
+      // counted without the position filter, so the planner can drop the window function
+      // entirely; the rows after "last_id" are the total minus its position
+      const countSql = trimSql(`
+        WITH "_r" AS (
+          ${await sqlBody('_b')}
+        )
         SELECT COUNT(*) AS "total"
-        FROM "${tableName}"
+        FROM "_r"
       `);
 
       let [{ total }]: any = await sequelize().query(countSql, {
         type: QueryTypes.SELECT,
         raw: true,
         replacements,
-        ...(debug ? {
-          logging: sql => logInfo(sql, true).catch(() => {})
-        } : {})
+        ...logging
       });
 
-      total = Number(total);
+      total = Math.max(Number(total) - after, 0);
 
       if (total) {
         const rows: any[] = await sequelize().query(await selectSql(limit), {
           type: QueryTypes.SELECT,
           raw: true,
           replacements,
-          ...(debug ? {
-            logging: sql => logInfo(sql, true).catch(() => {})
-          } : {})
+          ...logging
         });
 
         payload.data = (await dataModel(rows)) as T[];
