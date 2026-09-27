@@ -25,6 +25,50 @@ const has = (object: object, key: string): boolean => Object.prototype.hasOwnPro
 const strings = (value: unknown): string[] => isArray(value) ? value.filter(isString) : [];
 
 /**
+ * How one resource type reads when an account has stored nothing (`missing`)
+ * or an empty list (`empty`) for it: `'none'` - nothing allowed, `'all'` -
+ * unrestricted. Defaults: `missing: 'all'`, `empty: 'none'`.
+ */
+export type IAccessRule = {
+  missing?: 'none' | 'all',
+  empty?: 'none' | 'all'
+};
+
+/**
+ * Gateway side: what an account has stored (per type a list of ids, `null` for
+ * every one, or nothing) → the lists services apply. `rules` says, per type,
+ * what nothing / an empty list means; a stored list is kept and `null` leaves
+ * the type out (unrestricted). Types stored without a rule follow the defaults.
+ *
+ *   resolve(me.access, { store: { missing: 'none' } })                  // app: no grant = none
+ *   resolve(me.access, { workspace: { missing: 'all', empty: 'all' } }) // admin: empty = everyone
+ */
+export function resolve(stored: unknown, rules: Record<string, IAccessRule> = {}): IAccess {
+  const source: Record<string, unknown> = isObject(stored) ? stored : {};
+  const access: IAccess = {};
+
+  for (const type of Array.from(new Set([...Object.keys(source), ...Object.keys(rules)]))) {
+    const rule = rules[type] || {};
+    const value = source[type];
+
+    if (isArray(value)) {
+      const list = value.filter(isString);
+
+      if (list.length || ((rule.empty || 'none') === 'none')) {
+        access[type] = list;
+      }
+    } else if (!has(source, type) && (rule.missing === 'none')) {
+      access[type] = [];
+    }
+  }
+
+  return access;
+}
+
+/**
+ * @deprecated Per-item access is stored as lists now (see `resolve`); kept for
+ * grants still written as permission keys.
+ *
  * Grants → lists: every permission key `<type>.<id>` with `{ access: true }`,
  * for the requested types. Each requested type is present, empty when nothing
  * of it is granted. Who gets restricted at all is the caller's policy.

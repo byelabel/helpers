@@ -265,12 +265,14 @@ Per-resource access: which ids of each kind of resource a caller may reach — s
 | Export | Signature | Notes |
 |---|---|---|
 | `IAccess` | `Record<string, string[]>` | type → allowed ids |
-| `fromGrants` | `(permissions, types: string[]) => IAccess` | Every permission key `<type>.<id>` with `{ access: true }`, for the requested types; a requested type with no grants is `[]`. **No role logic** — who is restricted at all is the gateway's policy. |
+| `IAccessRule` | `{ missing?: 'none' \| 'all', empty?: 'none' \| 'all' }` | What nothing stored / an empty list means for one type. Defaults `missing: 'all'`, `empty: 'none'`. |
+| `resolve` | `(stored, rules?: Record<type, IAccessRule>) => IAccess` | **Gateway side** — the account's stored `access` (per type a list, `null` for all, or nothing) → the lists services apply: a list is kept, `null` leaves the type out, nothing / empty follow the type's rule. App gateway: `{ store: { missing: 'none' }, carrier: { missing: 'none' } }`; gateway-admin: `{ workspace: { missing: 'all', empty: 'all' } }`. **No role logic** — who is exempt is the gateway's policy. |
+| `fromGrants` | `(permissions, types: string[]) => IAccess` | **Deprecated** — for grants kept as `<type>.<id>` permission keys, which the permission table no longer stores. |
 | `scope` | `(me) => IAccess \| undefined` | **Service side** — reads back `me.access` (string ids only). Never looks at `permissions`. |
 | `ids` | `(access, type) => string[] \| undefined` | The list for one type; `undefined` when access is absent or the type is not in it (not restricted). |
 | `allowed` | `(access, type, id) => boolean` | One id against its type's list; `true` when that type is not restricted. |
 
-Rules it encodes: **gateways decide** (build `me.access` once per request with their own policy — app gateway: a non-master `user` gets `fromGrants(permissions, ['store', 'carrier'])`; gateway-admin: `{ workspace: workspace_ids }` when non-empty, root never), **services only apply** the lists. A missing type is unrestricted, an empty list is none allowed. Restricting a new kind of resource needs no change here.
+Rules it encodes: **gateways decide** (build `me.access` once per request with `resolve` over the account's stored `access` column — see account's `acc_account_permission` — plus their own exemption rule), **services only apply** the lists. A missing type is unrestricted, an empty list is none allowed. Restricting a new kind of resource needs no change here.
 
 ### `@byelabel/react` (frontend only)
 

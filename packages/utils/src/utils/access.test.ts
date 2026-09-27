@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allowed, fromGrants, ids, scope } from './access';
+import { allowed, fromGrants, ids, resolve, scope } from './access';
 
 const permissions = {
   workspace: { order: true },
@@ -27,6 +27,32 @@ describe('fromGrants', () => {
 
   it('ignores plain scopes and types it was not asked for', () => {
     expect(fromGrants(permissions, [])).toEqual({});
+  });
+});
+
+describe('resolve', () => {
+  it('keeps a stored list and leaves out a stored null (every one)', () => {
+    expect(resolve({ store: ['a'], carrier: null }, { store: { missing: 'none' }, carrier: { missing: 'none' } })).toEqual({ store: ['a'] });
+  });
+
+  it('reads a type with nothing stored by its rule', () => {
+    expect(resolve({}, { store: { missing: 'none' }, carrier: { missing: 'none' } })).toEqual({ store: [], carrier: [] });
+    expect(resolve(null, { store: { missing: 'none' } })).toEqual({ store: [] });
+    expect(resolve({}, { workspace: { missing: 'all' } })).toEqual({});
+  });
+
+  it('reads an empty list by its rule - none by default', () => {
+    expect(resolve({ store: [] }, { store: {} })).toEqual({ store: [] });
+    expect(resolve({ workspace: [] }, { workspace: { empty: 'all' } })).toEqual({});
+  });
+
+  it('keeps stored types that have no rule, by the defaults', () => {
+    expect(resolve({ product: ['p1'], zone: null })).toEqual({ product: ['p1'] });
+  });
+
+  it('keeps only string ids and ignores a malformed value', () => {
+    expect(resolve({ store: ['a', 1, null] })).toEqual({ store: ['a'] });
+    expect(resolve('nope', { store: { missing: 'none' } })).toEqual({ store: [] });
   });
 });
 
