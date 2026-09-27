@@ -258,6 +258,20 @@ AES-256-GCM, 12-byte IV, 16-byte auth tag.
 
 Replaced the `slugify` npm package, which kept apostrophes and dots (`Amelie’s Chocolate Inc.` → `amelie's-chocolate-inc.`).
 
+### `access` — `@byelabel/utils/access`
+
+Per-resource access for workspace users: which ids of each kind of resource they may reach. Generic over the resource type — a grant is any permission key `<type>.<id>` with `{ access: true }` — so stores, carrier accounts and whatever gets per-item grants later all go through the same four functions. Also on the root barrel as the `access` namespace.
+
+| Export | Signature | Notes |
+|---|---|---|
+| `IAccess` | `Record<string, string[]>` | type → allowed ids, e.g. `{ store: [...], carrier: [...] }` |
+| `accessOf` | `(me, types: string[]) => IAccess \| undefined` | **Gateway side** — builds a list for every requested type from `me.permissions`. `undefined` for anyone but a `role: 'user'` who is not `master` (the owner, `admin`/`root`, the bot). A requested type with no grants is `[]`, not missing. |
+| `scope` | `(me) => IAccess \| undefined` | **Service side** — reads back `me.access` (string ids only). Never looks at `permissions`. |
+| `ids` | `(access, type) => string[] \| undefined` | The list for one type; `undefined` when access is absent or the type is not in it (not restricted). |
+| `allowed` | `(access, type, id) => boolean` | One id against its type's list; `true` when that type is not restricted. |
+
+Rules it encodes: **only the gateway reads grants** (and decides which types are restricted); services apply the lists as filters. A missing type is unrestricted, an empty list is none allowed. Restricting a new kind of resource needs no change here.
+
 ### `@byelabel/react` (frontend only)
 
 `useClipboard` `useCountdown` `useDebounceEffect` `useDebouncedValue` `useInterval` `useIsInit` `useIsMobile` `useIsomorphicLayoutEffect` `useMounted` `useScript` `useTable` `useTabs` `useTimeout`; `AppContext`; `utils/color`. Subpaths `/hooks`, `/contexts`, `/utils`, `/color`. ESM, React ≥18 peer.

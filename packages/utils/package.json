@@ -10,6 +10,10 @@
       "types": "./build/index.d.ts",
       "default": "./build/index.js"
     },
+    "./access": {
+      "types": "./build/utils/access.d.ts",
+      "default": "./build/utils/access.js"
+    },
     "./address": {
       "types": "./build/utils/address.d.ts",
       "default": "./build/utils/address.js"

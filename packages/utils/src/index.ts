@@ -13,6 +13,7 @@ export * from './utils/output';
 export * from './utils/string';
 export * from './utils/validator';
 
+export * as access from './utils/access';
 export * as number from './utils/number';
 export * as money from './utils/money';
 
