@@ -1,2 +1,13 @@
 packages:
   - 'packages/*'
+
+# supply-chain safeguards for installs (pnpm >= 10.26)
+# a version must have been public for 7 days before it is installed...
+minimumReleaseAge: 10080
+# ...except our own packages, which are released and consumed right away
+minimumReleaseAgeExclude:
+  - '@byelabel/*'
+# dependencies of dependencies only from the registry, never git urls or tarballs
+blockExoticSubdeps: true
+# refuse an update published with weaker provenance than the version before it
+trustPolicy: no-downgrade

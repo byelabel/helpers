@@ -28,6 +28,8 @@ pnpm release utils [patch|minor|3.2.0]  # tags; publish.yml publishes with OIDC 
 
 **Not linked locally.** Services depend on a published range (`"@byelabel/utils": "^3.3.0"`) resolved from npmjs.com — a change here is invisible to a service until it is released and the service's lockfile is updated. `*.test.ts` are excluded from the build.
 
+**Supply-chain settings.** `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (a dependency version must be a week old; `@byelabel/*` exempt), `blockExoticSubdeps: true` and `trustPolicy: no-downgrade`, and the workflows pin every action to a commit SHA (`uses: owner/action@<sha> # vX.Y.Z`). Bump a pin by resolving the new tag to its SHA, never back to a tag.
+
 ## Importing
 
 Every module has a subpath export; the barrel re-exports all of them. `db`, `rabbit` and `redis` all export `connect`/`disconnect`, so the barrel exposes them **only as namespaces**:
