@@ -165,9 +165,9 @@ Config from `RABBIT_*` env (validated by Joi, overridable per call): `messageMax
 
 | Export | Signature | What it does |
 |---|---|---|
-| `checkRedisConfig` | `(options?) => IRedisOptions` | Joi over `REDIS_HOST/PORT/USER/PASS/DB/FLUSH_DB`; throws `INVALID_REDIS_CONFIGURATION`. |
+| `checkRedisConfig` | `(options?) => IRedisOptions` | Joi over `REDIS_HOST/PORT/USER/PASS/DB/FLUSH_DB/MAX_RETRIES/RETRY_DELAY/RETRY_MAX_DELAY` (retry defaults 10 / 500 ms / 5000 ms); throws `INVALID_REDIS_CONFIGURATION`. |
 | `createURI` | `(host, port, user?, pass?, db?) => string` | `redis://[user][:pass]@host:port[/db]`, credentials URI-encoded. |
-| `connect` | `(options?) => Promise<RedisClientType \| RedisClusterType>` | Per-PID singleton. A **comma-separated `REDIS_HOST` switches to `createCluster`** (and then `db` is ignored). Runs `FLUSHDB` on ready when `REDIS_FLUSH_DB=true`. |
+| `connect` | `(options?) => Promise<RedisClientType \| RedisClusterType>` | Per-PID singleton; concurrent callers share one attempt. The **initial connect retries with exponential backoff** (destroying each failed client) and rejects `REDIS_ERROR` after `maxRetries`; after the first `ready`, node-redis reconnects itself and errors are only logged. A **comma-separated `REDIS_HOST` switches to `createCluster`** (and then `db` is ignored). Runs `FLUSHDB` on ready when `REDIS_FLUSH_DB=true`. |
 | `disconnect` | `() => Promise<void>` | `client.destroy()`. |
 
 Uses **`redis` v5**. Services that need BullMQ bring their own `ioredis` client instead (see `webhook/src/utils/redis.ts`).

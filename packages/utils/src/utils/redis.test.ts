@@ -1,8 +1,43 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { AppError } from './error';
-import { checkRedisConfig, createURI } from './redis';
+import { EventEmitter } from 'node:events';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const ENV_KEYS = ['REDIS_HOST', 'REDIS_PORT', 'REDIS_USER', 'REDIS_PASS', 'REDIS_DB', 'REDIS_FLUSH_DB'] as const;
+// each test queues the outcome of the next connect attempts
+const attempts: Array<'ready' | 'error'> = [];
+const clients: any[] = [];
+
+vi.mock('redis', () => {
+  const make = () => {
+    const client: any = new EventEmitter();
+    const outcome = attempts.shift() ?? 'error';
+
+    client.destroy = vi.fn();
+    client.sendCommand = vi.fn(() => Promise.resolve('OK'));
+    client.connect = vi.fn(() => {
+      setImmediate(() => outcome === 'ready' ? client.emit('ready') : client.emit('error', new Error('connect ECONNREFUSED')));
+      return Promise.resolve();
+    });
+
+    clients.push(client);
+
+    return client;
+  };
+
+  return { createClient: vi.fn(make), createCluster: vi.fn(make) };
+});
+
+vi.mock('./log', () => ({
+  logError: vi.fn(() => Promise.resolve()),
+  logWarning: vi.fn(() => Promise.resolve())
+}));
+
+// imports must come after vi.mock
+import { AppError } from './error';
+import { checkRedisConfig, connect, createURI, disconnect } from './redis';
+
+const ENV_KEYS = [
+  'REDIS_HOST', 'REDIS_PORT', 'REDIS_USER', 'REDIS_PASS', 'REDIS_DB', 'REDIS_FLUSH_DB',
+  'REDIS_MAX_RETRIES', 'REDIS_RETRY_DELAY', 'REDIS_RETRY_MAX_DELAY'
+] as const;
 
 describe('checkRedisConfig', () => {
   const original: Record<string, string | undefined> = {};
@@ -85,6 +120,20 @@ describe('checkRedisConfig', () => {
     expect(() => checkRedisConfig({ host: 'h', flush: 'maybe' as any })).toThrow(AppError);
   });
 
+  it('applies retry defaults and reads them from env', () => {
+    const opts = checkRedisConfig({ host: 'h' });
+
+    expect(opts.maxRetries).toBe(10);
+    expect(opts.retryDelay).toBe(500);
+    expect(opts.retryMaxDelay).toBe(5000);
+
+    process.env.REDIS_MAX_RETRIES = '3';
+    process.env.REDIS_RETRY_DELAY = '10';
+    process.env.REDIS_RETRY_MAX_DELAY = '20';
+
+    expect(checkRedisConfig({ host: 'h' })).toMatchObject({ maxRetries: 3, retryDelay: 10, retryMaxDelay: 20 });
+  });
+
   it('rejects a non-numeric port', () => {
     process.env.REDIS_HOST = 'h';
     process.env.REDIS_PORT = 'abc';
@@ -126,5 +175,52 @@ describe('createURI', () => {
     expect(url.username).toBe('');
     expect(decodeURIComponent(url.password)).toBe('p@ss/w:rd#?');
     expect(url.hostname).toBe('localhost');
+  });
+});
+
+describe('connect', () => {
+  beforeEach(async () => {
+    attempts.length = 0;
+    clients.length = 0;
+    await disconnect();
+  });
+
+  it('retries until redis is ready', async () => {
+    attempts.push('error', 'error', 'ready');
+
+    const client = await connect({ host: 'h', maxRetries: 5, retryDelay: 1, retryMaxDelay: 2 });
+
+    expect(clients).toHaveLength(3);
+    expect(client).toBe(clients[2]);
+    expect(clients[0].destroy).toHaveBeenCalled();
+    expect(clients[1].destroy).toHaveBeenCalled();
+  });
+
+  it('rejects with REDIS_ERROR once the attempts run out', async () => {
+    attempts.push('error', 'error', 'error');
+
+    await expect(connect({ host: 'h', maxRetries: 3, retryDelay: 1 })).rejects.toMatchObject({ code: 'REDIS_ERROR' });
+    expect(clients).toHaveLength(3);
+  });
+
+  it('shares one attempt between concurrent callers and reuses the connection', async () => {
+    attempts.push('ready');
+
+    const [a, b] = await Promise.all([connect({ host: 'h' }), connect({ host: 'h' })]);
+
+    expect(a).toBe(b);
+    expect(await connect({ host: 'h' })).toBe(a);
+    expect(clients).toHaveLength(1);
+  });
+
+  it('does not fail the connection on an error after ready', async () => {
+    attempts.push('ready');
+
+    const client: any = await connect({ host: 'h' });
+
+    client.emit('error', new Error('socket closed'));
+
+    expect(await connect({ host: 'h' })).toBe(client);
+    expect(client.destroy).not.toHaveBeenCalled();
   });
 });

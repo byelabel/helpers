@@ -440,6 +440,11 @@ await redis.disconnect();
 | `user` | `REDIS_USER` |
 | `pass` | `REDIS_PASS` |
 | `db` | `REDIS_DB` |
+| `maxRetries` | `REDIS_MAX_RETRIES` (default `10`; max connect attempts) |
+| `retryDelay` | `REDIS_RETRY_DELAY` (default `500`; ms; initial backoff, doubles per attempt) |
+| `retryMaxDelay` | `REDIS_RETRY_MAX_DELAY` (default `5000`; ms; backoff cap) |
+
+`connect` retries the initial connection with exponential backoff, like RabbitMQ, so a service that boots before Redis waits for it instead of exiting. Once connected, node-redis reconnects on its own and later errors are only logged.
 
 `checkRedisConfig` throws `AppError('MISSING_REDIS_HOST')` when host is missing. Comma-separate `host`/`port`/`user`/`pass` to enable cluster mode.
 
