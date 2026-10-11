@@ -251,6 +251,8 @@ AES-256-GCM, 12-byte IV, 16-byte auth tag.
 |---|---|---|
 | `formatAddressLines` | `(address?) => string[]` | `[...street, "<city>, <state> <zip>", "<country>"]`, empty parts collapsed. `state`/`country` may be a string or `{ code, name }` — **name wins over code**. |
 | `formatAddress` | `(address?, separator = '\n') => string` | Joined form. |
+| `getAddressDifferences` | `(value?, resolved?) => AddressDifference[]` | Courier answer vs stored address, both flat `ValidatedAddress` (`country_code, zip_code, state_code, city, street[], residential`). `[{ field, from, to }]` per differing field; case/spacing ignored, ZIP compared on its base (`07606` = `07606-1723`); a field `resolved` leaves out is skipped. Used by shipping's order validation and account's location sweep. |
+| `isAddressConfirmed` | `(differences) => boolean` | `true` unless a difference is in `ADDRESS_DECIDING_FIELDS` (`country_code`, `state_code`, `zip_code`) — a rewritten street, city or residential flag does not fail an address. |
 
 ### `string` — `@byelabel/utils/string`
 

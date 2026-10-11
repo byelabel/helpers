@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAddress, formatAddressLines } from './address';
+import { formatAddress, formatAddressLines, getAddressDifferences, isAddressConfirmed } from './address';
 
 describe('formatAddressLines', () => {
   it('renders street, region and country lines', () => {
@@ -78,5 +78,54 @@ describe('formatAddress', () => {
 
   it('returns an empty string for missing input', () => {
     expect(formatAddress(null)).toBe('');
+  });
+});
+
+describe('getAddressDifferences', () => {
+  const stored = {
+    country_code: 'US',
+    zip_code: '07606',
+    state_code: 'NJ',
+    city: 'South Hackensack',
+    street: ['9528 25 Hwy'],
+    residential: false
+  };
+
+  it('ignores case, spacing and a ZIP+4 extension', () => {
+    expect(getAddressDifferences(stored, {
+      ...stored,
+      zip_code: '07606-1723',
+      city: 'SOUTH  HACKENSACK',
+      street: ['9528 25 hwy']
+    })).toEqual([]);
+
+    expect(getAddressDifferences({ ...stored, country_code: 'CA', zip_code: 'N4G 4T6' }, { ...stored, country_code: 'CA', zip_code: 'N4G4T6' })).toEqual([]);
+  });
+
+  it('records each differing field with the raw values', () => {
+    expect(getAddressDifferences(stored, {
+      ...stored,
+      zip_code: '07607',
+      street: ['9528 HIGHWAY 25'],
+      residential: true
+    })).toEqual([
+      { field: 'zip_code', from: '07606', to: '07607' },
+      { field: 'street', from: ['9528 25 Hwy'], to: ['9528 HIGHWAY 25'] },
+      { field: 'residential', from: false, to: true }
+    ]);
+  });
+
+  it('skips a field the courier did not answer', () => {
+    expect(getAddressDifferences(stored, { zip_code: '07606' })).toEqual([]);
+  });
+});
+
+describe('isAddressConfirmed', () => {
+  it('fails only on a country, state or postal code difference', () => {
+    expect(isAddressConfirmed([])).toBe(true);
+    expect(isAddressConfirmed([{ field: 'street', from: ['a'], to: ['b'] }, { field: 'city', from: 'a', to: 'b' }, { field: 'residential', from: false, to: true }])).toBe(true);
+    expect(isAddressConfirmed([{ field: 'zip_code', from: 'L12 7N5', to: 'L9T 2X7' }])).toBe(false);
+    expect(isAddressConfirmed([{ field: 'state_code', from: 'ON', to: 'QC' }])).toBe(false);
+    expect(isAddressConfirmed([{ field: 'country_code', from: 'US', to: 'CA' }])).toBe(false);
   });
 });

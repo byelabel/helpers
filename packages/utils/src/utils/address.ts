@@ -1,4 +1,4 @@
-import { isNonEmptyString } from './validator';
+import { isArray, isNonEmptyString, isNonNullObject, isUndefined } from './validator';
 
 export interface AddressRegion {
   code?: string | null;
@@ -36,9 +36,9 @@ function regionName(region?: string | AddressRegion | null): string {
  * name wins over the code. Empty parts collapse instead of leaving separators.
  */
 export function formatAddressLines(address?: Address | null): string[] {
-  if (!address || typeof address !== 'object') return [];
+  if (!isNonNullObject(address)) return [];
 
-  const street = Array.isArray(address.street) ? address.street : [address.street];
+  const street = isArray(address.street) ? address.street : [address.street];
 
   const lines = street
     .map(line => (isNonEmptyString(line) ? (line as string).trim() : ''))
@@ -61,4 +61,67 @@ export function formatAddressLines(address?: Address | null): string[] {
 
 export function formatAddress(address?: Address | null, separator = '\n'): string {
   return formatAddressLines(address).join(separator);
+}
+
+/** A courier-validated address, flat: the shape address validation sends and answers with. */
+export interface ValidatedAddress {
+  country_code?: string | null;
+  zip_code?: string | null;
+  state_code?: string | null;
+  city?: string | null;
+  street?: string[] | null;
+  residential?: boolean | null;
+}
+
+/** One field where the courier's answer differs from the address as it is stored. */
+export interface AddressDifference {
+  field: keyof ValidatedAddress;
+  from: any;
+  to: any;
+}
+
+/**
+ * The fields that decide whether an address counts as valid. The courier reads through a wrong
+ * postal code (given `L12 7N5` with a real street it answers `L9T 2X7` in another city, without a
+ * word), so these have to come back as they went in. A rewritten street (`9528 25 Hwy` →
+ * `9528 HIGHWAY 25`), a corrected city or the residential flag are detail, not a disagreement.
+ */
+export const ADDRESS_DECIDING_FIELDS: Array<keyof ValidatedAddress> = ['country_code', 'state_code', 'zip_code'];
+
+// case and spacing are formatting, and a US ZIP+4 extension is the courier adding detail:
+// 07606 and 07606-1723 are the same postal code
+const normalizeAddressValue = (value: any): string => String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
+const normalizeZipCode = (value: any): string => normalizeAddressValue(value).split('-')[0];
+
+/**
+ * Where the courier's answer (`resolved`) differs from the stored address (`value`), field by field.
+ * A field the courier did not answer is skipped. `from`/`to` are the raw values, for the panel to
+ * label and format.
+ */
+export function getAddressDifferences(value?: ValidatedAddress | null, resolved?: ValidatedAddress | null): AddressDifference[] {
+  const pairs: [keyof ValidatedAddress, any, any][] = [
+    ['country_code', value?.country_code, resolved?.country_code],
+    ['zip_code', value?.zip_code, resolved?.zip_code],
+    ['state_code', value?.state_code, resolved?.state_code],
+    ['city', value?.city, resolved?.city],
+    ['street', isArray(value?.street) ? value!.street : [], isUndefined(resolved?.street) ? undefined : (isArray(resolved?.street) ? resolved!.street : [])],
+    ['residential', value?.residential === true, isUndefined(resolved?.residential) ? undefined : resolved?.residential === true]
+  ];
+
+  return pairs.reduce((differences: AddressDifference[], [field, from, to]) => {
+    if (isUndefined(to)) return differences;
+
+    const same = (field === 'zip_code')
+      ? (normalizeZipCode(from) === normalizeZipCode(to))
+      : (isArray(from) || isArray(to))
+        ? (normalizeAddressValue((from || []).join(' ')) === normalizeAddressValue((to || []).join(' ')))
+        : (normalizeAddressValue(from) === normalizeAddressValue(to));
+
+    return same ? differences : [...differences, { field, from, to }];
+  }, []);
+}
+
+/** Whether the differences leave the address valid: none of them is a deciding field. */
+export function isAddressConfirmed(differences: Array<{ field: string }>): boolean {
+  return !differences.some(difference => (ADDRESS_DECIDING_FIELDS as string[]).includes(difference.field));
 }
