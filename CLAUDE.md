@@ -220,8 +220,8 @@ There is **no `createFilters` export.** Each service defines its own local `crea
 | `short` | `(n, { locale, decimals = 1, long = false })` | Compact notation (`1.2K`). |
 | `formatBytes` | `(bytes) => string` | Starts at **KB** — `formatBytes(500)` is `0.5 KB`, never bytes. |
 | `getRandom` | `(min, max) => number` | Inclusive integer. |
-| `toLb` `toOz` `toKg` `toGr` | `(value, unit: 'lb'\|'oz'\|'kg'\|'gr') => number` | Weight conversion; rounds to 2 (lb/oz), 3 (kg), 1 (gr) decimals. |
-| `toIn` `toCm` | `(value, unit: 'in'\|'cm') => number` | Length conversion (2 / 1 decimals). |
+| `toLb` `toOz` `toKg` `toGr` | `(value, unit: 'lb'\|'oz'\|'kg'\|'gr', options?: { precision?, rounding?: 'round'\|'floor'\|'ceil' }) => number` | Weight conversion. **Full precision by default** (exact BigInt rational arithmetic, result is the shortest decimal ≤ 15 significant digits within 1e-14), so every conversion reverses exactly for inputs up to 13 significant digits. `precision` rounds to that many decimals with `rounding` (default `'round'`, half up). |
+| `toIn` `toCm` | `(value, unit: 'in'\|'cm', options?) => number` | Length conversion, same rules. |
 
 ### `crypt` — `@byelabel/utils/crypt`
 
@@ -335,4 +335,5 @@ Offset lists return `IList` (`total.all` / `total.filtered`); cursor lists retur
 - **`createHash(x, 'md5', secret)` silently ignores `secret`.** Only the `sha256` branch is keyed.
 - **`writeToFile` is synchronous** and every `log*` call goes through it — a hot error path blocks the event loop and grows `logs/` unbounded (there is no rotation; see the ~150 files already in `logging/logs/`).
 - **`runJobs` executes job functions in a `node:vm` context.** Only `logError` and the extra `args` are in scope; a stack trace from inside a job points at a synthesized script.
+- **Unit converters no longer round by default** (`toLb`/`toKg`/… return e.g. `0.45359237`, not `0.454`). Round only at the edge with `{ precision }`, and use `rounding: 'floor'` for a carrier that rounds up — a value rounded to nearest can convert back above the original (1 lb → 0.454 kg → 1.0009 lb → billed 2 lb). Never convert an already-converted value; convert from the stored original.
 - **Not linked locally** — editing `helpers/` changes nothing in a service until the package is released and the service's `@byelabel/utils` range is refreshed.

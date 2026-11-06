@@ -206,16 +206,19 @@ getRandom(1, 10);                                          // integer in [1, 10]
 formatBytes(2048);                                         // '2.0 KB'
 formatBytes(5 * 1024 * 1024);                              // '5.0 MB'
 
-// weight converters — (value, unit: 'lb' | 'oz' | 'kg' | 'gr')
-toLb(1, 'kg');                                             // 2.2
+// weight converters — (value, unit: 'lb' | 'oz' | 'kg' | 'gr', options?)
+toKg(1, 'lb');                                             // 0.45359237 (full precision by default)
+toLb(0.45359237, 'kg');                                    // 1          (every conversion reverses exactly)
+toLb(1, 'kg');                                             // 2.20462262184878
 toOz(1, 'lb');                                             // 16
-toKg(16, 'oz');                                            // 0.454
-toGr(0.5, 'kg');                                           // 500
+toKg(1, 'lb', { precision: 3 });                           // 0.454
+toKg(1, 'lb', { precision: 3, rounding: 'floor' });        // 0.453 (never converts back above 1 lb)
 toLb('abc' as any, 'kg');                                  // 0 (non-numeric → 0)
 
-// dimension converters — (value, unit: 'in' | 'cm')
+// dimension converters — (value, unit: 'in' | 'cm', options?)
+toCm(1, 'in');                                             // 2.54
 toIn(2.54, 'cm');                                          // 1
-toCm(1, 'in');                                             // 2.5
+toCm(1, 'in', { precision: 1 });                           // 2.5
 toIn(0, 'in');                                             // 0 (zero/non-numeric → 0)
 ```
 
@@ -229,16 +232,16 @@ Options accepted by each formatter:
 | `percent(n, options?)` | `locale`, `decimals` (exact fraction digits) |
 | `short(n, options?)` | `locale`, `decimals` (max fraction digits, default `1`), `long` (long compact display, default `false`) |
 
-Unit converters for shipping weights and dimensions. All converters take `(value, unit)` — weight units are `'lb' | 'oz' | 'kg' | 'gr'`, dimension units are `'in' | 'cm'` (`WeightUnit` / `LengthUnit` types are exported). Zero, missing, or non-numeric values fall back to `0`. Numeric strings are accepted everywhere.
+Unit converters for shipping weights and dimensions: `toLb`, `toOz`, `toKg`, `toGr` take `(value, unit: 'lb' | 'oz' | 'kg' | 'gr', options?)`, `toIn`, `toCm` take `(value, unit: 'in' | 'cm', options?)` (`WeightUnit`, `LengthUnit`, `ConvertOptions`, `RoundingMode` types are exported). Zero, missing, or non-numeric values fall back to `0`. Numeric strings are accepted everywhere.
 
-| Function | Returns | Rounding |
+They compute in exact rational arithmetic (1 lb = 0.45359237 kg, 1 oz = 1/16 lb, 1 in = 2.54 cm) and **return full precision by default**: the shortest decimal (≤ 15 significant digits) within 1e-14 of the exact result. This makes every conversion reversible — for any input with up to 13 significant digits, `toLb(toKg(x, 'lb'), 'kg') === x`, and likewise for every pair of units.
+
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `toLb(value, unit)` | pounds | 2 dp |
-| `toOz(value, unit)` | ounces | 2 dp |
-| `toKg(value, unit)` | kilograms | 3 dp |
-| `toGr(value, unit)` | grams | 1 dp |
-| `toIn(value, unit)` | inches | 2 dp |
-| `toCm(value, unit)` | centimeters | 1 dp |
+| `precision` | none (full precision) | Decimal places to round to. |
+| `rounding` | `'round'` (half up) | `'round'`, `'floor'` or `'ceil'`; only applies with `precision`. |
+
+Round only where a value leaves the system (display, a carrier request), and always convert from the original value, never from an already-rounded one. When the receiver rounds **up** (carriers billing per lb/kg), send `rounding: 'floor'`: a value rounded to nearest can convert back to slightly more than the original (1 lb → 0.454 kg → 1.0009 lb → billed as 2 lb).
 
 ### `@byelabel/utils/money`
 
